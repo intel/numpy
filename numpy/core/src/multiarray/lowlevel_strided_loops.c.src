@@ -230,19 +230,73 @@ static NPY_GCC_OPT_3 void
 #    endif
 #  endif
 
-    while (N > 0) {
-#  if @elsize@ != 16
-        *((@type@ *)dst) = temp;
-#  else
-        *((npy_uint64 *)dst) = temp0;
-        *((npy_uint64 *)dst + 1) = temp1;
-#  endif
-#  if @dst_contig@
-        dst += @elsize@;
-#  else
-        dst += dst_stride;
-#  endif
-        --N;
+    if (N > 10240) {
+        int i;
+        int num_proc = omp_get_num_procs();
+        int count = (num_proc <= 32) ? num_proc:32;
+        #pragma omp parallel num_threads(count)
+        {
+            int tid = omp_get_thread_num();
+            for (i = tid; i < (N/(4096/@elsize@)); i+=count) {
+                #if @dst_contig@
+                    char *_dst = dst + i*(4096/@elsize@)*@elsize@;
+                #else
+                    char *_dst = dst + i*(4096/@elsize@)*dst_stride;
+                #endif
+
+                int j;
+                for (j = 0; j < (4096/@elsize@); ++j) {
+                    #if @elsize@ != 16
+                        *((@type@ *)_dst) = temp;
+                    #else
+                        *((npy_uint64 *)_dst) = temp0;
+                        *((npy_uint64 *)_dst + 1) = temp1;
+                    #endif
+
+                    #if @dst_contig@
+                        _dst += @elsize@;
+                    #else
+                        _dst += dst_stride;
+                    #endif
+                }
+            }
+        }
+        #if @dst_contig@
+            char *_dst = dst + (N - N%(4096/@elsize@))*@elsize@;
+        #else
+            char *_dst = dst + (N - N%(4096/@elsize@))*dst_stride;
+        #endif
+        for (i = 0; i < (N%(4096/@elsize@)); ++i) {
+            #if @elsize@ != 16
+                *((@type@ *)_dst) = temp;
+            #else
+                *((npy_uint64 *)_dst) = temp0;
+                *((npy_uint64 *)_dst + 1) = temp1;
+            #endif
+
+            #if @dst_contig@
+                _dst += @elsize@;
+            #else
+                _dst += dst_stride;
+            #endif
+        }
+    }
+    else {
+        while (N > 0) {
+            #if @elsize@ != 16
+                *((@type@ *)dst) = temp;
+            #else
+                *((npy_uint64 *)dst) = temp0;
+                *((npy_uint64 *)dst + 1) = temp1;
+            #endif
+
+            #if @dst_contig@
+                dst += @elsize@;
+            #else
+                dst += dst_stride;
+            #endif
+            --N;
+        }
     }
 #endif/* @elsize == 1 && @dst_contig@ -- else */
 }
