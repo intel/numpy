@@ -338,7 +338,7 @@ def setup_package():
     old_path = os.getcwd()
     os.chdir(src_path)
     sys.path.insert(0, src_path)
-
+    check_MKL()
     # Rewrite the version file everytime
     write_version_py()
 
@@ -385,6 +385,118 @@ def setup_package():
         os.chdir(old_path)
     return
 
+####################################################################
+def Compile_MKL():
+    """check if the C module can be build by trying to compile a small 
+    program against the libyaml development library"""
+
+    import tempfile
+    import shutil
+
+    import distutils.sysconfig
+    import distutils.ccompiler
+    from distutils.errors import CompileError, LinkError
+
+    libraries = ['mkl_rt']
+
+    # write a temporary .c file to compile
+    c_code = textwrap.dedent("""
+    #define min(x,y) (((x) < (y)) ? (x) : (y))
+
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include "mkl.h"
+
+    int main(void)
+    {
+        double *A, *B, *C;
+        int m, n, k, i, j;
+        double alpha, beta;
+        m = 2000, k = 200, n = 1000;
+        alpha = 1.0; beta = 0.0;
+        A = (double *)mkl_malloc( m*k*sizeof( double ), 64 );
+        B = (double *)mkl_malloc( k*n*sizeof( double ), 64 );
+        C = (double *)mkl_malloc( m*n*sizeof( double ), 64 );
+        for (i = 0; i < (m*k); i++) {
+            A[i] = (double)(i+1);
+        }
+
+        for (i = 0; i < (k*n); i++) {
+            B[i] = (double)(-i-1);
+        }
+
+        for (i = 0; i < (m*n); i++) {
+            C[i] = 0.0;
+        }
+
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+                    m, n, k, alpha, A, k, B, n, beta, C, n);
+        for (i=0; i<min(m,6); i++) {
+          for (j=0; j<min(n,6); j++) {
+            printf("%f", C[j+i*n]);
+          }
+        }
+
+        mkl_free(A);
+        mkl_free(B);
+        mkl_free(C);
+        return 0;
+    }
+        """)
+    tmp_dir = tempfile.mkdtemp(prefix = 'tmp_mkl_test_')
+    bin_file_name = os.path.join(tmp_dir, 'test_mkl')
+    file_name = bin_file_name + '.c'
+    with open(file_name, 'w') as fp:
+        fp.write(c_code)
+
+    # and try to compile it
+    compiler = distutils.ccompiler.new_compiler()
+    assert isinstance(compiler, distutils.ccompiler.CCompiler)
+    distutils.sysconfig.customize_compiler(compiler)
+
+    try:
+        compiler.link_executable(
+            compiler.compile([file_name]),
+            bin_file_name,
+            libraries=libraries,
+        )
+    except CompileError:
+        print('mkl_rt compile error')
+        ret_val = 0
+    except LinkError:
+        print('mkl_rt link error')
+        ret_val = 0
+    else:
+        print('mkl compile success')
+        ret_val = 1
+    shutil.rmtree(tmp_dir)
+    return ret_val
+
+#################################################################
+#################################################################
+def check_MKL_Defined(pxi_dir,flag):
+    pxi_h = open(pxi_dir,'r+')
+    python_pxi = pxi_h.readlines()
+    pxi_h.seek(0)
+    for line in python_pxi:
+        try:
+            if line.split()[0] == 'DEF' and line.split()[1] == 'MKL_AVAILABLE':
+                pxi_h.write('DEF MKL_AVAILABLE = '+str(flag)+'\n')
+            else:
+                pxi_h.write(line)
+        except:
+            pxi_h.write(line)
+    pxi_h.truncate()
+    pxi_h.close()
+
+def check_MKL():
+    mkl_available = Compile_MKL()
+    print('configuring MKL with '+str(mkl_available))
+    pxi_dir = os.path.join(os.getcwd(),'numpy','random','mtrand','mtrand.pyx')
+    check_MKL_Defined(pxi_dir, mkl_available)
+
+###########################################
+###########################################
 
 if __name__ == '__main__':
     setup_package()

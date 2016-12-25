@@ -37,7 +37,7 @@ def configuration(parent_package='',top_path=None):
     if needs_mingw_ftime_workaround():
         defs.append(("NPY_NEEDS_MINGW_TIME_WORKAROUND", None))
 
-    libs = []
+    libs = ["mkl_rt"]
     # Configure mtrand
     config.add_extension('mtrand',
                          sources=[join('mtrand', x) for x in

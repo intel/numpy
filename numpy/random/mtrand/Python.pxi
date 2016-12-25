@@ -41,3 +41,4 @@ cdef extern from "string.h":
 
 cdef extern from "math.h":
     double fabs(double x)
+DEF MKL_AVAILABLE = 1
