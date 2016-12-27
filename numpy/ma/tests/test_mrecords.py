@@ -148,9 +148,11 @@ class TestMRecords(TestCase):
         rdata = data.view(MaskedRecords)
         val = ma.array([10, 20, 30], mask=[1, 0, 0])
 
-        rdata['num'] = val
-        assert_equal(rdata.num, val)
-        assert_equal(rdata.num.mask, [1, 0, 0])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            rdata['num'] = val
+            assert_equal(rdata.num, val)
+            assert_equal(rdata.num.mask, [1, 0, 0])
 
     def test_set_fields_mask(self):
         # Tests setting the mask of a field.
@@ -207,7 +209,7 @@ class TestMRecords(TestCase):
         assert_equal(mbase.a.mask, [0, 0, 1, 1, 0])
         assert_equal(mbase.b.mask, [1, 1, 0, 0, 0])
         assert_equal(mbase.c.mask, [0, 0, 1, 1, 0])
-        # Reinitialize and redo
+        # Reinitalizes and redo
         mbase.mask = False
         mbase.fieldmask = nmask
         assert_equal(mbase.a.mask, [0, 0, 1, 1, 0])

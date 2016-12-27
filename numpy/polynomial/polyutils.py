@@ -1,5 +1,5 @@
 """
-Utility classes and functions for the polynomial modules.
+Utililty classes and functions for the polynomial modules.
 
 This module provides: error and warning objects; a polynomial base class;
 and some routines used in both the `polynomial` and `chebyshev` modules.
@@ -82,7 +82,7 @@ class PolyBase(object):
 
     Deprecated in numpy 1.9.0, use the abstract
     ABCPolyBase class instead. Note that the latter
-    requires a number of virtual functions to be
+    reguires a number of virtual functions to be
     implemented.
 
     """

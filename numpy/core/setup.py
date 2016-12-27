@@ -17,7 +17,7 @@ from setup_common import *
 
 # Set to True to enable relaxed strides checking. This (mostly) means
 # that `strides[dim]` is ignored if `shape[dim] == 1` when setting flags.
-NPY_RELAXED_STRIDES_CHECKING = (os.environ.get('NPY_RELAXED_STRIDES_CHECKING', "1") != "0")
+NPY_RELAXED_STRIDES_CHECKING = (os.environ.get('NPY_RELAXED_STRIDES_CHECKING', "0") != "0")
 
 # XXX: ugly, we use a class to avoid calling twice some expensive functions in
 # config.h/numpyconfig.h. I don't see a better way because distutils force
@@ -178,7 +178,7 @@ def check_complex(config, mathlibs):
 
     try:
         if os.uname()[0] == "Interix":
-            warnings.warn("Disabling broken complex support. See #1365", stacklevel=2)
+            warnings.warn("Disabling broken complex support. See #1365")
             return priv, pub
     except:
         # os.uname not available on all platforms. blanket except ugly but safe
@@ -272,10 +272,6 @@ def check_types(config_cmd, ext, build_dir):
     if res:
         private_defines.append(('HAVE_ENDIAN_H', 1))
         public_defines.append(('NPY_HAVE_ENDIAN_H', 1))
-    res = config_cmd.check_header("sys/endian.h")
-    if res:
-        private_defines.append(('HAVE_SYS_ENDIAN_H', 1))
-        public_defines.append(('NPY_HAVE_SYS_ENDIAN_H', 1))
 
     # Check basic types sizes
     for type in ('short', 'int', 'long'):

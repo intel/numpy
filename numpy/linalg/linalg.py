@@ -677,7 +677,7 @@ def qr(a, mode='reduced'):
     `a` is of type `matrix`, all the return values will be matrices too.
 
     New 'reduced', 'complete', and 'raw' options for mode were added in
-    NumPy 1.8.0 and the old option 'full' was made an alias of 'reduced'.  In
+    Numpy 1.8 and the old option 'full' was made an alias of 'reduced'.  In
     addition the options 'full' and 'economic' were deprecated.  Because
     'full' was the previous default and 'reduced' is the new default,
     backward compatibility can be maintained by letting `mode` default.
@@ -737,12 +737,12 @@ def qr(a, mode='reduced'):
             msg = "".join((
                     "The 'full' option is deprecated in favor of 'reduced'.\n",
                     "For backward compatibility let mode default."))
-            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            warnings.warn(msg, DeprecationWarning)
             mode = 'reduced'
         elif mode in ('e', 'economic'):
             # 2013-04-01, 1.8
             msg = "The 'economic' option is deprecated.",
-            warnings.warn(msg, DeprecationWarning, stacklevel=2)
+            warnings.warn(msg, DeprecationWarning)
             mode = 'economic'
         else:
             raise ValueError("Unrecognized mode '%s'" % mode)
@@ -1666,7 +1666,7 @@ def slogdet(a):
     Broadcasting rules apply, see the `numpy.linalg` documentation for
     details.
 
-    .. versionadded:: 1.6.0
+    .. versionadded:: 1.6.0.
 
     The determinant is computed via LU factorization using the LAPACK
     routine z/dgetrf.
@@ -1804,9 +1804,8 @@ def lstsq(a, b, rcond=-1):
         of `b`.
     rcond : float, optional
         Cut-off ratio for small singular values of `a`.
-        For the purposes of rank determination, singular values are treated
-        as zero if they are smaller than `rcond` times the largest singular
-        value of `a`.
+        Singular values are set to zero if they are smaller than `rcond`
+        times the largest singular value of `a`.
 
     Returns
     -------
@@ -2347,12 +2346,12 @@ def _multi_dot_three(A, B, C):
     than `_multi_dot_matrix_chain_order`
 
     """
-    a0, a1b0 = A.shape
-    b1c0, c1 = C.shape
-    # cost1 = cost((AB)C) = a0*a1b0*b1c0 + a0*b1c0*c1
-    cost1 = a0 * b1c0 * (a1b0 + c1)
-    # cost2 = cost(A(BC)) = a1b0*b1c0*c1 + a0*a1b0*c1
-    cost2 = a1b0 * c1 * (a0 + b1c0)
+    # cost1 = cost((AB)C)
+    cost1 = (A.shape[0] * A.shape[1] * B.shape[1] +  # (AB)
+             A.shape[0] * B.shape[1] * C.shape[1])   # (--)C
+    # cost2 = cost((AB)C)
+    cost2 = (B.shape[0] * B.shape[1] * C.shape[1] +  #  (BC)
+             A.shape[0] * A.shape[1] * C.shape[1])   # A(--)
 
     if cost1 < cost2:
         return dot(dot(A, B), C)

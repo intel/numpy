@@ -6,7 +6,7 @@ import re
 import itertools
 import warnings
 import weakref
-from operator import itemgetter, index as opindex
+from operator import itemgetter
 
 import numpy as np
 from . import format
@@ -14,12 +14,12 @@ from ._datasource import DataSource
 from numpy.core.multiarray import packbits, unpackbits
 from ._iotools import (
     LineSplitter, NameValidator, StringConverter, ConverterError,
-    ConverterLockError, ConversionWarning, _is_string_like,
-    has_nested_fields, flatten_dtype, easy_dtype, _bytes_to_name
+    ConverterLockError, ConversionWarning, _is_string_like, has_nested_fields,
+    flatten_dtype, easy_dtype, _bytes_to_name
     )
 
 from numpy.compat import (
-    asbytes, asstr, asbytes_nested, bytes, basestring, unicode, is_pathlib_path
+    asbytes, asstr, asbytes_nested, bytes, basestring, unicode
     )
 
 if sys.version_info[0] >= 3:
@@ -86,19 +86,10 @@ class BagObj(object):
         return object.__getattribute__(self, '_obj').keys()
 
 
-def zipfile_factory(file, *args, **kwargs):
-    """
-    Create a ZipFile.
-
-    Allows for Zip64, and the `file` argument can accept file, str, or
-    pathlib.Path objects. `args` and `kwargs` are passed to the zipfile.ZipFile
-    constructor.
-    """
-    if is_pathlib_path(file):
-        file = str(file)
+def zipfile_factory(*args, **kwargs):
     import zipfile
     kwargs['allowZip64'] = True
-    return zipfile.ZipFile(file, *args, **kwargs)
+    return zipfile.ZipFile(*args, **kwargs)
 
 
 class NpzFile(object):
@@ -270,7 +261,7 @@ def load(file, mmap_mode=None, allow_pickle=True, fix_imports=True,
 
     Parameters
     ----------
-    file : file-like object, string, or pathlib.Path
+    file : file-like object or string
         The file to read. File-like objects must support the
         ``seek()`` and ``read()`` methods. Pickled files require that the
         file-like object support the ``readline()`` method as well.
@@ -364,21 +355,20 @@ def load(file, mmap_mode=None, allow_pickle=True, fix_imports=True,
     memmap([4, 5, 6])
 
     """
+    import gzip
+
     own_fid = False
     if isinstance(file, basestring):
         fid = open(file, "rb")
-        own_fid = True
-    elif is_pathlib_path(file):
-        fid = file.open("rb")
         own_fid = True
     else:
         fid = file
 
     if encoding not in ('ASCII', 'latin1', 'bytes'):
         # The 'encoding' value for pickle also affects what encoding
-        # the serialized binary data of NumPy arrays is loaded
+        # the serialized binary data of Numpy arrays is loaded
         # in. Pickle does not pass on the encoding information to
-        # NumPy. The unpickling code in numpy.core.multiarray is
+        # Numpy. The unpickling code in numpy.core.multiarray is
         # written to assume that unicode data appearing where binary
         # should be is in 'latin1'. 'bytes' is also safe, as is 'ASCII'.
         #
@@ -399,9 +389,7 @@ def load(file, mmap_mode=None, allow_pickle=True, fix_imports=True,
         _ZIP_PREFIX = asbytes('PK\x03\x04')
         N = len(format.MAGIC_PREFIX)
         magic = fid.read(N)
-        # If the file size is less than N, we need to make sure not
-        # to seek past the beginning of the file
-        fid.seek(-min(N, len(magic)), 1)  # back-up
+        fid.seek(-N, 1)  # back-up
         if magic.startswith(_ZIP_PREFIX):
             # zip-file (assume .npz)
             # Transfer file ownership to NpzFile
@@ -437,9 +425,9 @@ def save(file, arr, allow_pickle=True, fix_imports=True):
 
     Parameters
     ----------
-    file : file, str, or pathlib.Path
+    file : file or str
         File or filename to which the data is saved.  If file is a file-object,
-        then the filename is unchanged.  If file is a string or Path, a ``.npy``
+        then the filename is unchanged.  If file is a string, a ``.npy``
         extension will be appended to the file name if it does not already
         have one.
     allow_pickle : bool, optional
@@ -466,7 +454,7 @@ def save(file, arr, allow_pickle=True, fix_imports=True):
     Notes
     -----
     For a description of the ``.npy`` format, see the module docstring
-    of `numpy.lib.format` or the NumPy Enhancement Proposal
+    of `numpy.lib.format` or the Numpy Enhancement Proposal
     http://docs.scipy.org/doc/numpy/neps/npy-format.html
 
     Examples
@@ -487,11 +475,6 @@ def save(file, arr, allow_pickle=True, fix_imports=True):
         if not file.endswith('.npy'):
             file = file + '.npy'
         fid = open(file, "wb")
-        own_fid = True
-    elif is_pathlib_path(file):
-        if not file.name.endswith('.npy'):
-            file = file.parent / (file.name + '.npy')
-        fid = file.open("wb")
         own_fid = True
     else:
         fid = file
@@ -524,9 +507,8 @@ def savez(file, *args, **kwds):
     ----------
     file : str or file
         Either the file name (string) or an open file (file-like object)
-        where the data will be saved. If file is a string or a Path, the
-        ``.npz`` extension will be appended to the file name if it is not
-        already there.
+        where the data will be saved. If file is a string, the ``.npz``
+        extension will be appended to the file name if it is not already there.
     args : Arguments, optional
         Arrays to save to the file. Since it is not possible for Python to
         know the names of the arrays outside `savez`, the arrays will be saved
@@ -552,7 +534,7 @@ def savez(file, *args, **kwds):
     variables they contain.  The archive is not compressed and each file
     in the archive contains one variable in ``.npy`` format. For a
     description of the ``.npy`` format, see `numpy.lib.format` or the
-    NumPy Enhancement Proposal
+    Numpy Enhancement Proposal
     http://docs.scipy.org/doc/numpy/neps/npy-format.html
 
     When opening the saved ``.npz`` file with `load` a `NpzFile` object is
@@ -628,9 +610,6 @@ def _savez(file, args, kwds, compress, allow_pickle=True, pickle_kwargs=None):
     if isinstance(file, basestring):
         if not file.endswith('.npz'):
             file = file + '.npz'
-    elif is_pathlib_path(file):
-        if not file.name.endswith('.npz'):
-            file = file.parent / (file.name + '.npz')
 
     namedict = kwds
     for i, val in enumerate(args):
@@ -648,11 +627,7 @@ def _savez(file, args, kwds, compress, allow_pickle=True, pickle_kwargs=None):
     zipf = zipfile_factory(file, mode="w", compression=compression)
 
     # Stage arrays in a temporary file on disk, before writing to zip.
-
-    # Since target file might be big enough to exceed capacity of a global
-    # temporary directory, create temp file side-by-side with the target file.
-    file_dir, file_prefix = os.path.split(file) if _is_string_like(file) else (None, 'tmp')
-    fd, tmpfile = tempfile.mkstemp(prefix=file_prefix, dir=file_dir, suffix='-numpy.npy')
+    fd, tmpfile = tempfile.mkstemp(suffix='-numpy.npy')
     os.close(fd)
     try:
         for key, val in namedict.items():
@@ -665,8 +640,6 @@ def _savez(file, args, kwds, compress, allow_pickle=True, pickle_kwargs=None):
                 fid.close()
                 fid = None
                 zipf.write(tmpfile, arcname=fname)
-            except IOError as exc:
-                raise IOError("Failed to write to %s: %s" % (tmpfile, exc))
             finally:
                 if fid:
                     fid.close()
@@ -716,7 +689,7 @@ def loadtxt(fname, dtype=float, comments='#', delimiter=None,
 
     Parameters
     ----------
-    fname : file, str, or pathlib.Path
+    fname : file or str
         File, filename, or generator to read.  If the filename extension is
         ``.gz`` or ``.bz2``, the file is first decompressed. Note that
         generators should return byte strings for Python 3k.
@@ -741,18 +714,10 @@ def loadtxt(fname, dtype=float, comments='#', delimiter=None,
         ``converters = {3: lambda s: float(s.strip() or 0)}``.  Default: None.
     skiprows : int, optional
         Skip the first `skiprows` lines; default: 0.
-
-    usecols : int or sequence, optional
-        Which columns to read, with 0 being the first. For example,
-        usecols = (1,4,5) will extract the 2nd, 5th and 6th columns.
+    usecols : sequence, optional
+        Which columns to read, with 0 being the first.  For example,
+        ``usecols = (1,4,5)`` will extract the 2nd, 5th and 6th columns.
         The default, None, results in all columns being read.
-
-        .. versionadded:: 1.11.0
-
-        Also when a single column has to be read it is possible to use
-        an integer instead of a tuple. E.g ``usecols = 3`` reads the
-        fourth column the same way as `usecols = (3,)`` would.
-
     unpack : bool, optional
         If True, the returned array is transposed, so that arguments may be
         unpacked using ``x, y, z = loadtxt(...)``.  When used with a structured
@@ -821,30 +786,11 @@ def loadtxt(fname, dtype=float, comments='#', delimiter=None,
     user_converters = converters
     if delimiter is not None:
         delimiter = asbytes(delimiter)
-
     if usecols is not None:
-        # Allow usecols to be a single int or a sequence of ints
-        try:
-            usecols_as_list = list(usecols)
-        except TypeError:
-            usecols_as_list = [usecols]
-        for col_idx in usecols_as_list:
-            try:
-                opindex(col_idx)
-            except TypeError as e:
-                e.args = (
-                    "usecols must be an int or a sequence of ints but "
-                    "it contains at least one element of type %s" %
-                    type(col_idx),
-                    )
-                raise
-        # Fall back to existing code
-        usecols = usecols_as_list
+        usecols = list(usecols)
 
     fown = False
     try:
-        if is_pathlib_path(fname):
-            fname = str(fname)
         if _is_string_like(fname):
             fown = True
             if fname.endswith('.gz'):
@@ -944,7 +890,7 @@ def loadtxt(fname, dtype=float, comments='#', delimiter=None,
             # End of lines reached
             first_line = ''
             first_vals = []
-            warnings.warn('loadtxt: Empty input file: "%s"' % fname, stacklevel=2)
+            warnings.warn('loadtxt: Empty input file: "%s"' % fname)
         N = len(usecols or first_vals)
 
         dtype_types, packing = flatten_dtype(dtype)
@@ -1041,7 +987,7 @@ def savetxt(fname, X, fmt='%.18e', delimiter=' ', newline='\n', header='',
             a) a single specifier, `fmt='%.4e'`, resulting in numbers formatted
                 like `' (%s+%sj)' % (fmt, fmt)`
             b) a full string specifying every real and imaginary part, e.g.
-                `' %.4e %+.4ej %.4e %+.4ej %.4e %+.4ej'` for 3 columns
+                `' %.4e %+.4j %.4e %+.4j %.4e %+.4j'` for 3 columns
             c) a list of specifiers, one per column - in this case, the real
                 and imaginary part must have separate specifiers,
                 e.g. `['%.3e + %.3ej', '(%.15e%+.15ej)']` for 2 columns
@@ -1140,8 +1086,6 @@ def savetxt(fname, X, fmt='%.18e', delimiter=' ', newline='\n', header='',
     delimiter = asstr(delimiter)
 
     own_fh = False
-    if is_pathlib_path(fname):
-        fname = str(fname)
     if _is_string_like(fname):
         own_fh = True
         if fname.endswith('.gz'):
@@ -1327,7 +1271,7 @@ def genfromtxt(fname, dtype=float, comments='#', delimiter=None,
 
     Parameters
     ----------
-    fname : file, str, pathlib.Path, list of str, generator
+    fname : file, str, list of str, generator
         File, filename, list, or generator to read.  If the filename
         extension is `.gz` or `.bz2`, the file is first decompressed. Mote
         that generators must return byte strings in Python 3k.  The strings
@@ -1428,7 +1372,7 @@ def genfromtxt(fname, dtype=float, comments='#', delimiter=None,
 
     References
     ----------
-    .. [1] NumPy User Guide, section `I/O with NumPy
+    .. [1] Numpy User Guide, section `I/O with Numpy
            <http://docs.scipy.org/doc/numpy/user/basics.io.genfromtxt.html>`_.
 
     Examples
@@ -1502,8 +1446,6 @@ def genfromtxt(fname, dtype=float, comments='#', delimiter=None,
     # Initialize the filehandle, the LineSplitter and the NameValidator
     own_fhd = False
     try:
-        if is_pathlib_path(fname):
-            fname = str(fname)
         if isinstance(fname, basestring):
             if sys.version_info[0] == 2:
                 fhd = iter(np.lib._datasource.open(fname, 'rbU'))
@@ -1542,7 +1484,7 @@ def genfromtxt(fname, dtype=float, comments='#', delimiter=None,
         # return an empty array if the datafile is empty
         first_line = asbytes('')
         first_values = []
-        warnings.warn('genfromtxt: Empty input file: "%s"' % fname, stacklevel=2)
+        warnings.warn('genfromtxt: Empty input file: "%s"' % fname)
 
     # Should we take the first values as names ?
     if names is True:
@@ -1827,7 +1769,7 @@ def genfromtxt(fname, dtype=float, comments='#', delimiter=None,
                 raise ValueError(errmsg)
             # Issue a warning ?
             else:
-                warnings.warn(errmsg, ConversionWarning, stacklevel=2)
+                warnings.warn(errmsg, ConversionWarning)
 
     # Strip the last skip_footer data
     if skip_footer > 0:

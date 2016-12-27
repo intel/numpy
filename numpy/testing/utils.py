@@ -9,12 +9,12 @@ import sys
 import re
 import operator
 import warnings
-from functools import partial, wraps
+from functools import partial
 import shutil
 import contextlib
 from tempfile import mkdtemp, mkstemp
-from unittest.case import SkipTest
 
+from .nosetester import import_nose
 from numpy.core import float32, empty, arange, array_repr, ndarray
 from numpy.lib.utils import deprecate
 
@@ -23,53 +23,40 @@ if sys.version_info[0] >= 3:
 else:
     from StringIO import StringIO
 
-__all__ = [
-        'assert_equal', 'assert_almost_equal', 'assert_approx_equal',
-        'assert_array_equal', 'assert_array_less', 'assert_string_equal',
-        'assert_array_almost_equal', 'assert_raises', 'build_err_msg',
-        'decorate_methods', 'jiffies', 'memusage', 'print_assert_equal',
-        'raises', 'rand', 'rundocs', 'runstring', 'verbose', 'measure',
-        'assert_', 'assert_array_almost_equal_nulp', 'assert_raises_regex',
-        'assert_array_max_ulp', 'assert_warns', 'assert_no_warnings',
-        'assert_allclose', 'IgnoreException', 'clear_and_catch_warnings',
-        'SkipTest', 'KnownFailureException', 'temppath', 'tempdir', 'IS_PYPY',
-        'HAS_REFCOUNT', 'suppress_warnings'
-        ]
+__all__ = ['assert_equal', 'assert_almost_equal', 'assert_approx_equal',
+           'assert_array_equal', 'assert_array_less', 'assert_string_equal',
+           'assert_array_almost_equal', 'assert_raises', 'build_err_msg',
+           'decorate_methods', 'jiffies', 'memusage', 'print_assert_equal',
+           'raises', 'rand', 'rundocs', 'runstring', 'verbose', 'measure',
+           'assert_', 'assert_array_almost_equal_nulp', 'assert_raises_regex',
+           'assert_array_max_ulp', 'assert_warns', 'assert_no_warnings',
+           'assert_allclose', 'IgnoreException', 'clear_and_catch_warnings',
+           'SkipTest', 'KnownFailureException', 'temppath', 'tempdir']
 
 
 class KnownFailureException(Exception):
     '''Raise this exception to mark a test as a known failing test.'''
     pass
 
-
 KnownFailureTest = KnownFailureException  # backwards compat
-verbose = 0
-
-IS_PYPY = '__pypy__' in sys.modules
-HAS_REFCOUNT = getattr(sys, 'getrefcount', None) is not None
 
 
-def import_nose():
-    """ Import nose only when needed.
-    """
-    nose_is_good = True
-    minimum_nose_version = (1, 0, 0)
+# nose.SkipTest is unittest.case.SkipTest
+# import it into the namespace, so that it's available as np.testing.SkipTest
+try:
+    from unittest.case import SkipTest
+except ImportError:
+    # on py2.6 unittest.case is not available. Ask nose for a replacement.
     try:
         import nose
-    except ImportError:
-        nose_is_good = False
-    else:
-        if nose.__versioninfo__ < minimum_nose_version:
-            nose_is_good = False
+        SkipTest = nose.SkipTest
+    except (ImportError, AttributeError):
+        # If nose is not available, testing won't work anyway,
+        # but we need something to import in numpy/testing/decorators.py.
+        # See gh-7498.
+        SkipTest = None
 
-    if not nose_is_good:
-        msg = ('Need nose >= %d.%d.%d for tests - see '
-               'http://nose.readthedocs.io' %
-               minimum_nose_version)
-        raise ImportError(msg)
-
-    return nose
-
+verbose = 0
 
 def assert_(val, msg=''):
     """
@@ -89,7 +76,6 @@ def assert_(val, msg=''):
             smsg = msg
         raise AssertionError(smsg)
 
-
 def gisnan(x):
     """like isnan, but always raise an error if type not supported instead of
     returning a TypeError object.
@@ -106,7 +92,6 @@ def gisnan(x):
     if isinstance(st, type(NotImplemented)):
         raise TypeError("isnan not supported for this type")
     return st
-
 
 def gisfinite(x):
     """like isfinite, but always raise an error if type not supported instead of
@@ -126,7 +111,6 @@ def gisfinite(x):
             raise TypeError("isfinite not supported for this type")
     return st
 
-
 def gisinf(x):
     """like isinf, but always raise an error if type not supported instead of
     returning a TypeError object.
@@ -145,7 +129,6 @@ def gisinf(x):
             raise TypeError("isinf not supported for this type")
     return st
 
-
 @deprecate(message="numpy.testing.rand is deprecated in numpy 1.11. "
                    "Use numpy.random.rand instead.")
 def rand(*args):
@@ -160,7 +143,6 @@ def rand(*args):
     for i in range(len(f)):
         f[i] = random.random()
     return results
-
 
 if os.name == 'nt':
     # Code "stolen" from enthought/debug/memusage.py
@@ -276,14 +258,13 @@ def build_err_msg(arrays, err_msg, header='Items are not equal:',
 
             try:
                 r = r_func(a)
-            except Exception as exc:
-                r = '[repr failed for <{}>: {}]'.format(type(a).__name__, exc)
+            except:
+                r = '[repr failed]'
             if r.count('\n') > 3:
                 r = '\n'.join(r.splitlines()[:3])
                 r += '...'
             msg.append(' %s: %s' % (names[i], r))
     return '\n'.join(msg)
-
 
 def assert_equal(actual,desired,err_msg='',verbose=True):
     """
@@ -396,13 +377,8 @@ def assert_equal(actual,desired,err_msg='',verbose=True):
         pass
 
     # Explicitly use __eq__ for comparison, ticket #2552
-    with suppress_warnings() as sup:
-        # TODO: Better handling will to needed when change happens!
-        sup.filter(DeprecationWarning, ".*NAT ==")
-        sup.filter(FutureWarning, ".*NAT ==")
-        if not (desired == actual):
-            raise AssertionError(msg)
-
+    if not (desired == actual):
+        raise AssertionError(msg)
 
 def print_assert_equal(test_string, actual, desired):
     """
@@ -444,7 +420,6 @@ def print_assert_equal(test_string, actual, desired):
         pprint.pprint(desired, msg)
         raise AssertionError(msg.getvalue())
 
-
 def assert_almost_equal(actual,desired,decimal=7,err_msg='',verbose=True):
     """
     Raises an AssertionError if two items are not equal up to desired
@@ -455,14 +430,11 @@ def assert_almost_equal(actual,desired,decimal=7,err_msg='',verbose=True):
               instead of this function for more consistent floating point
               comparisons.
 
-    The test verifies that the elements of ``actual`` and ``desired`` satisfy.
+    The test is equivalent to ``abs(desired-actual) < 0.5 * 10**(-decimal)``.
 
-        ``abs(desired-actual) < 1.5 * 10**(-decimal)``
-
-    That is a looser test than originally documented, but agrees with what the
-    actual implementation in `assert_array_almost_equal` did up to rounding
-    vagaries. An exception is raised at conflicting values. For ndarrays this
-    delegates to assert_array_almost_equal
+    Given two objects (numbers or ndarrays), check that all elements of these
+    objects are almost equal. An exception is raised at conflicting values.
+    For ndarrays this delegates to assert_array_almost_equal
 
     Parameters
     ----------
@@ -563,7 +535,7 @@ def assert_almost_equal(actual,desired,decimal=7,err_msg='',verbose=True):
             return
     except (NotImplementedError, TypeError):
         pass
-    if abs(desired - actual) >= 1.5 * 10.0**(-decimal):
+    if round(abs(desired - actual), decimal) != 0:
         raise AssertionError(_build_err_msg())
 
 
@@ -664,7 +636,6 @@ def assert_approx_equal(actual,desired,significant=7,err_msg='',verbose=True):
     if np.abs(sc_desired - sc_actual) >= np.power(10., -(significant-1)):
         raise AssertionError(msg)
 
-
 def assert_array_compare(comparison, x, y, err_msg='', verbose=True,
                          header='', precision=6):
     __tracebackhide__ = True  # Hide traceback for py.test
@@ -691,9 +662,8 @@ def assert_array_compare(comparison, x, y, err_msg='', verbose=True,
         # pass (or maybe eventually catch the errors and return False, I
         # dunno, that's a little trickier and we can figure that out when the
         # time comes).
-        with suppress_warnings() as sup:
-            sup.filter(DeprecationWarning, ".*==")
-            sup.filter(FutureWarning, ".*==")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
             return comparison(*args, **kwargs)
 
     def isnumber(x):
@@ -776,7 +746,6 @@ def assert_array_compare(comparison, x, y, err_msg='', verbose=True,
                             names=('x', 'y'), precision=precision)
         raise ValueError(msg)
 
-
 def assert_array_equal(x, y, err_msg='', verbose=True):
     """
     Raises an AssertionError if two array_like objects are not equal.
@@ -843,7 +812,6 @@ def assert_array_equal(x, y, err_msg='', verbose=True):
     assert_array_compare(operator.__eq__, x, y, err_msg=err_msg,
                          verbose=verbose, header='Arrays are not equal')
 
-
 def assert_array_almost_equal(x, y, decimal=6, err_msg='', verbose=True):
     """
     Raises an AssertionError if two objects are not equal up to desired
@@ -854,16 +822,14 @@ def assert_array_almost_equal(x, y, decimal=6, err_msg='', verbose=True):
               instead of this function for more consistent floating point
               comparisons.
 
-    The test verifies identical shapes and that the elements of ``actual`` and
-    ``desired`` satisfy.
+    The test verifies identical shapes and verifies values with
+    ``abs(desired-actual) < 0.5 * 10**(-decimal)``.
 
-        ``abs(desired-actual) < 1.5 * 10**(-decimal)``
-
-    That is a looser test than originally documented, but agrees with what the
-    actual implementation did up to rounding vagaries. An exception is raised
-    at shape mismatch or conflicting values. In contrast to the standard usage
-    in numpy, NaNs are compared like numbers, no assertion is raised if both
-    objects have NaNs in the same positions.
+    Given two array_like objects, check that the shape is equal and all
+    elements of these objects are almost equal. An exception is raised at
+    shape mismatch or conflicting values. In contrast to the standard usage
+    in numpy, NaNs are compared like numbers, no assertion is raised if
+    both objects have NaNs in the same positions.
 
     Parameters
     ----------
@@ -940,12 +906,12 @@ def assert_array_almost_equal(x, y, decimal=6, err_msg='', verbose=True):
         # casting of x later.
         dtype = result_type(y, 1.)
         y = array(y, dtype=dtype, copy=False, subok=True)
-        z = abs(x - y)
+        z = abs(x-y)
 
         if not issubdtype(z.dtype, number):
             z = z.astype(float_)  # handle object arrays
 
-        return z < 1.5 * 10.0**(-decimal)
+        return around(z, decimal) <= 10.0**(-decimal)
 
     assert_array_compare(compare, x, y, err_msg=err_msg, verbose=verbose,
              header=('Arrays are not almost equal to %d decimals' % decimal),
@@ -1023,10 +989,8 @@ def assert_array_less(x, y, err_msg='', verbose=True):
                          verbose=verbose,
                          header='Arrays are not less-ordered')
 
-
 def runstring(astr, dict):
     exec(astr, dict)
-
 
 def assert_string_equal(actual, desired):
     """
@@ -1149,10 +1113,9 @@ def raises(*args,**kwargs):
     return nose.tools.raises(*args,**kwargs)
 
 
-def assert_raises(*args, **kwargs):
+def assert_raises(*args,**kwargs):
     """
     assert_raises(exception_class, callable, *args, **kwargs)
-    assert_raises(exception_class)
 
     Fail unless an exception of class exception_class is thrown
     by callable when invoked with arguments args and keyword
@@ -1165,12 +1128,12 @@ def assert_raises(*args, **kwargs):
 
     >>> from numpy.testing import assert_raises
     >>> with assert_raises(ZeroDivisionError):
-    ...     1 / 0
+    ...   1 / 0
 
     is equivalent to
 
     >>> def div(x, y):
-    ...     return x / y
+    ...    return x / y
     >>> assert_raises(ZeroDivisionError, div, 1, 0)
 
     """
@@ -1179,36 +1142,83 @@ def assert_raises(*args, **kwargs):
     return nose.tools.assert_raises(*args,**kwargs)
 
 
-def assert_raises_regex(exception_class, expected_regexp, *args, **kwargs):
-    """
-    assert_raises_regex(exception_class, expected_regexp, callable, *args,
-                        **kwargs)
-    assert_raises_regex(exception_class, expected_regexp)
+assert_raises_regex_impl = None
 
+
+def assert_raises_regex(exception_class, expected_regexp,
+                        callable_obj=None, *args, **kwargs):
+    """
     Fail unless an exception of class exception_class and with message that
     matches expected_regexp is thrown by callable when invoked with arguments
     args and keyword arguments kwargs.
 
-    Alternatively, can be used as a context manager like `assert_raises`.
-
     Name of this function adheres to Python 3.2+ reference, but should work in
     all versions down to 2.6.
-
-    Notes
-    -----
-    .. versionadded:: 1.9.0
 
     """
     __tracebackhide__ = True  # Hide traceback for py.test
     nose = import_nose()
 
-    if sys.version_info.major >= 3:
-        funcname = nose.tools.assert_raises_regex
-    else:
-        # Only present in Python 2.7, missing from unittest in 2.6
-        funcname = nose.tools.assert_raises_regexp
+    global assert_raises_regex_impl
+    if assert_raises_regex_impl is None:
+        try:
+            # Python 3.2+
+            assert_raises_regex_impl = nose.tools.assert_raises_regex
+        except AttributeError:
+            try:
+                # 2.7+
+                assert_raises_regex_impl = nose.tools.assert_raises_regexp
+            except AttributeError:
+                # 2.6
 
-    return funcname(exception_class, expected_regexp, *args, **kwargs)
+                # This class is copied from Python2.7 stdlib almost verbatim
+                class _AssertRaisesContext(object):
+                    """A context manager used to implement TestCase.assertRaises* methods."""
+
+                    def __init__(self, expected, expected_regexp=None):
+                        self.expected = expected
+                        self.expected_regexp = expected_regexp
+
+                    def failureException(self, msg):
+                        return AssertionError(msg)
+
+                    def __enter__(self):
+                        return self
+
+                    def __exit__(self, exc_type, exc_value, tb):
+                        if exc_type is None:
+                            try:
+                                exc_name = self.expected.__name__
+                            except AttributeError:
+                                exc_name = str(self.expected)
+                            raise self.failureException(
+                                "{0} not raised".format(exc_name))
+                        if not issubclass(exc_type, self.expected):
+                            # let unexpected exceptions pass through
+                            return False
+                        self.exception = exc_value  # store for later retrieval
+                        if self.expected_regexp is None:
+                            return True
+
+                        expected_regexp = self.expected_regexp
+                        if isinstance(expected_regexp, basestring):
+                            expected_regexp = re.compile(expected_regexp)
+                        if not expected_regexp.search(str(exc_value)):
+                            raise self.failureException(
+                                '"%s" does not match "%s"' %
+                                (expected_regexp.pattern, str(exc_value)))
+                        return True
+
+                def impl(cls, regex, callable_obj, *a, **kw):
+                    mgr = _AssertRaisesContext(cls, regex)
+                    if callable_obj is None:
+                        return mgr
+                    with mgr:
+                        callable_obj(*a, **kw)
+                assert_raises_regex_impl = impl
+
+    return assert_raises_regex_impl(exception_class, expected_regexp,
+                                    callable_obj, *args, **kwargs)
 
 
 def decorate_methods(cls, decorator, testmatch=None):
@@ -1311,8 +1321,6 @@ def _assert_valid_refcount(op):
     Check that ufuncs don't mishandle refcount of object `1`.
     Used in a few regression tests.
     """
-    if not HAS_REFCOUNT:
-        return True
     import numpy as np
 
     b = np.arange(100*100).reshape(100, 100)
@@ -1383,7 +1391,6 @@ def assert_allclose(actual, desired, rtol=1e-7, atol=0, equal_nan=False,
     assert_array_compare(compare, actual, desired, err_msg=str(err_msg),
                          verbose=verbose, header=header)
 
-
 def assert_array_almost_equal_nulp(x, y, nulp=1):
     """
     Compare two arrays relatively to their spacing.
@@ -1446,7 +1453,6 @@ def assert_array_almost_equal_nulp(x, y, nulp=1):
             msg = "X and Y are not equal to %d ULP (max is %g)" % (nulp, max_nulp)
         raise AssertionError(msg)
 
-
 def assert_array_max_ulp(a, b, maxulp=1, dtype=None):
     """
     Check that all items of arrays differ in at most N Units in the Last Place.
@@ -1490,7 +1496,6 @@ def assert_array_max_ulp(a, b, maxulp=1, dtype=None):
         raise AssertionError("Arrays are not almost equal up to %g ULP" %
                              maxulp)
     return ret
-
 
 def nulp_diff(x, y, dtype=None):
     """For each item in x and y, return the number of representable floating
@@ -1545,7 +1550,6 @@ def nulp_diff(x, y, dtype=None):
     ry = integer_repr(y)
     return _diff(rx, ry, t)
 
-
 def _integer_repr(x, vdt, comp):
     # Reinterpret binary representation of the float as sign-magnitude:
     # take into account two-complement representation
@@ -1560,7 +1564,6 @@ def _integer_repr(x, vdt, comp):
 
     return rx
 
-
 def integer_repr(x):
     """Return the signed-magnitude interpretation of the binary representation of
     x."""
@@ -1571,7 +1574,6 @@ def integer_repr(x):
         return _integer_repr(x, np.int64, np.int64(-2**63))
     else:
         raise ValueError("Unsupported dtype %s" % x.dtype)
-
 
 # The following two classes are copied from python 2.6 warnings module (context
 # manager)
@@ -1606,7 +1608,6 @@ class WarningMessage(object):
         return ("{message : %r, category : %r, filename : %r, lineno : %s, "
                     "line : %r}" % (self.message, self._category_name,
                                     self.filename, self.lineno, self.line))
-
 
 class WarningManager(object):
     """
@@ -1668,12 +1669,16 @@ class WarningManager(object):
 @contextlib.contextmanager
 def _assert_warns_context(warning_class, name=None):
     __tracebackhide__ = True  # Hide traceback for py.test
-    with suppress_warnings() as sup:
-        l = sup.record(warning_class)
+    with warnings.catch_warnings(record=True) as l:
+        warnings.simplefilter('always')
         yield
         if not len(l) > 0:
             name_str = " when calling %s" % name if name is not None else ""
             raise AssertionError("No warning raised" + name_str)
+        if not l[0].category is warning_class:
+            name_str = "%s " % name if name is not None else ""
+            raise AssertionError("First warning %sis not a %s (is %s)"
+                                 % (name_str, warning_class, l[0]))
 
 
 def assert_warns(warning_class, *args, **kwargs):
@@ -1682,7 +1687,8 @@ def assert_warns(warning_class, *args, **kwargs):
 
     A warning of class warning_class should be thrown by the callable when
     invoked with arguments args and keyword arguments kwargs.
-    If a different type of warning is thrown, it will not be caught.
+    If a different type of warning is thrown, it will not be caught, and the
+    test case will be deemed to have suffered an error.
 
     If called with all arguments other than the warning class omitted, may be
     used as a context manager:
@@ -1799,8 +1805,7 @@ def _gen_alignment_data(dtype=float32, type='binary', max_size=24):
                 inp = lambda: arange(s, dtype=dtype)[o:]
                 out = empty((s,), dtype=dtype)[o:]
                 yield out, inp(), ufmt % (o, o, s, dtype, 'out of place')
-                d = inp()
-                yield d, d, ufmt % (o, o, s, dtype, 'in place')
+                yield inp(), inp(), ufmt % (o, o, s, dtype, 'in place')
                 yield out[1:], inp()[:-1], ufmt % \
                     (o + 1, o, s - 1, dtype, 'out of place')
                 yield out[:-1], inp()[1:], ufmt % \
@@ -1815,11 +1820,9 @@ def _gen_alignment_data(dtype=float32, type='binary', max_size=24):
                 out = empty((s,), dtype=dtype)[o:]
                 yield out, inp1(), inp2(),  bfmt % \
                     (o, o, o, s, dtype, 'out of place')
-                d = inp1()
-                yield d, d, inp2(), bfmt % \
+                yield inp1(), inp1(), inp2(), bfmt % \
                     (o, o, o, s, dtype, 'in place1')
-                d = inp2()
-                yield d, inp1(), d, bfmt % \
+                yield inp2(), inp1(), inp2(), bfmt % \
                     (o, o, o, s, dtype, 'in place2')
                 yield out[1:], inp1()[:-1], inp2()[:-1], bfmt % \
                     (o + 1, o, o, s - 1, dtype, 'out of place')
@@ -1853,7 +1856,6 @@ def tempdir(*args, **kwargs):
     finally:
         shutil.rmtree(tmpdir)
 
-
 @contextlib.contextmanager
 def temppath(*args, **kwargs):
     """Context manager for temporary files.
@@ -1862,7 +1864,7 @@ def temppath(*args, **kwargs):
     parameters are the same as for tempfile.mkstemp and are passed directly
     to that function. The underlying file is removed when the context is
     exited, so it should be closed at that time.
-
+  
     Windows does not allow a temporary file to be opened if it is already
     open, so the underlying file must be closed after opening before it
     can be opened again.
@@ -1905,17 +1907,14 @@ class clear_and_catch_warnings(warnings.catch_warnings):
         attributes mirror the arguments to ``showwarning()``.
     modules : sequence, optional
         Sequence of modules for which to reset warnings registry on entry and
-        restore on exit. To work correctly, all 'ignore' filters should
-        filter by one of these modules.
+        restore on exit
 
     Examples
     --------
     >>> import warnings
     >>> with clear_and_catch_warnings(modules=[np.core.fromnumeric]):
     ...     warnings.simplefilter('always')
-    ...     warnings.filterwarnings('ignore', module='np.core.fromnumeric')
-    ...     # do something that raises a warning but ignore those in
-    ...     # np.core.fromnumeric
+    ...     # do something that raises a warning in np.core.fromnumeric
     """
     class_modules = ()
 
@@ -1939,266 +1938,3 @@ class clear_and_catch_warnings(warnings.catch_warnings):
                 mod.__warningregistry__.clear()
             if mod in self._warnreg_copies:
                 mod.__warningregistry__.update(self._warnreg_copies[mod])
-
-
-class suppress_warnings(object):
-    """
-    Context manager and decorator doing much the same as
-    ``warnings.catch_warnings``.
-
-    However, it also provides a filter mechanism to work around
-    http://bugs.python.org/issue4180.
-
-    This bug causes Python before 3.4 to not reliably show warnings again
-    after they have been ignored once (even within catch_warnings). It
-    means that no "ignore" filter can be used easily, since following
-    tests might need to see the warning. Additionally it allows easier
-    specificity for testing warnings and can be nested.
-
-    Parameters
-    ----------
-    forwarding_rule : str, optional
-        One of "always", "once", "module", or "location". Analogous to
-        the usual warnings module filter mode, it is useful to reduce
-        noise mostly on the outmost level. Unsuppressed and unrecorded
-        warnings will be forwarded based on this rule. Defaults to "always".
-        "location" is equivalent to the warnings "default", match by exact
-        location the warning warning originated from.
-
-    Notes
-    -----
-    Filters added inside the context manager will be discarded again
-    when leaving it. Upon entering all filters defined outside a
-    context will be applied automatically.
-
-    When a recording filter is added, matching warnings are stored in the
-    ``log`` attribute as well as in the list returned by ``record``.
-
-    If filters are added and the ``module`` keyword is given, the
-    warning registry of this module will additionally be cleared when
-    applying it, entering the context, or exiting it. This could cause
-    warnings to appear a second time after leaving the context if they
-    were configured to be printed once (default) and were already
-    printed before the context was entered.
-
-    Nesting this context manager will work as expected when the
-    forwarding rule is "always" (default). Unfiltered and unrecorded
-    warnings will be passed out and be matched by the outer level.
-    On the outmost level they will be printed (or caught by another
-    warnings context). The forwarding rule argument can modify this
-    behaviour.
-
-    Like ``catch_warnings`` this context manager is not threadsafe.
-
-    Examples
-    --------
-    >>> with suppress_warnings() as sup:
-    ...     sup.filter(DeprecationWarning, "Some text")
-    ...     sup.filter(module=np.ma.core)
-    ...     log = sup.record(FutureWarning, "Does this occur?")
-    ...     command_giving_warnings()
-    ...     # The FutureWarning was given once, the filtered warnings were
-    ...     # ignored. All other warnings abide outside settings (may be
-    ...     # printed/error)
-    ...     assert_(len(log) == 1)
-    ...     assert_(len(sup.log) == 1)  # also stored in log attribute
-
-    Or as a decorator:
-
-    >>> sup = suppress_warnings()
-    >>> sup.filter(module=np.ma.core)  # module must match exact
-    >>> @sup
-    >>> def some_function():
-    ...     # do something which causes a warning in np.ma.core
-    ...     pass
-    """
-    def __init__(self, forwarding_rule="always"):
-        self._entered = False
-
-        # Suppressions are either instance or defined inside one with block:
-        self._suppressions = []
-
-        if forwarding_rule not in {"always", "module", "once", "location"}:
-            raise ValueError("unsupported forwarding rule.")
-        self._forwarding_rule = forwarding_rule
-
-    def _clear_registries(self):
-        # Simply clear the registry, this should normally be harmless,
-        # note that on new pythons it would be invalidated anyway.
-        for module in self._tmp_modules:
-            if hasattr(module, "__warningregistry__"):
-                module.__warningregistry__.clear()
-
-    def _filter(self, category=Warning, message="", module=None, record=False):
-        if record:
-            record = []  # The log where to store warnings
-        else:
-            record = None
-        if self._entered:
-            if module is None:
-                warnings.filterwarnings(
-                    "always", category=category, message=message)
-            else:
-                module_regex = module.__name__.replace('.', '\.') + '$'
-                warnings.filterwarnings(
-                    "always", category=category, message=message,
-                    module=module_regex)
-                self._tmp_modules.add(module)
-                self._clear_registries()
-
-            self._tmp_suppressions.append(
-                (category, message, re.compile(message, re.I), module, record))
-        else:
-            self._suppressions.append(
-                (category, message, re.compile(message, re.I), module, record))
-
-        return record
-
-    def filter(self, category=Warning, message="", module=None):
-        """
-        Add a new suppressing filter or apply it if the state is entered.
-
-        Parameters
-        ----------
-        category : class, optional
-            Warning class to filter
-        message : string, optional
-            Regular expression matching the warning message.
-        module : module, optional
-            Module to filter for. Note that the module (and its file)
-            must match exactly and cannot be a submodule. This may make
-            it unreliable for external modules.
-
-        Notes
-        -----
-        When added within a context, filters are only added inside
-        the context and will be forgotten when the context is exited.
-        """
-        self._filter(category=category, message=message, module=module,
-                     record=False)
-
-    def record(self, category=Warning, message="", module=None):
-        """
-        Append a new recording filter or apply it if the state is entered.
-
-        All warnings matching will be appended to the ``log`` attribute.
-
-        Parameters
-        ----------
-        category : class, optional
-            Warning class to filter
-        message : string, optional
-            Regular expression matching the warning message.
-        module : module, optional
-            Module to filter for. Note that the module (and its file)
-            must match exactly and cannot be a submodule. This may make
-            it unreliable for external modules.
-
-        Returns
-        -------
-        log : list
-            A list which will be filled with all matched warnings.
-
-        Notes
-        -----
-        When added within a context, filters are only added inside
-        the context and will be forgotten when the context is exited.
-        """
-        return self._filter(category=category, message=message, module=module,
-                            record=True)
-
-    def __enter__(self):
-        if self._entered:
-            raise RuntimeError("cannot enter suppress_warnings twice.")
-
-        self._orig_show = warnings.showwarning
-        self._filters = warnings.filters
-        warnings.filters = self._filters[:]
-
-        self._entered = True
-        self._tmp_suppressions = []
-        self._tmp_modules = set()
-        self._forwarded = set()
-
-        self.log = []  # reset global log (no need to keep same list)
-
-        for cat, mess, _, mod, log in self._suppressions:
-            if log is not None:
-                del log[:]  # clear the log
-            if mod is None:
-                warnings.filterwarnings(
-                    "always", category=cat, message=mess)
-            else:
-                module_regex = mod.__name__.replace('.', '\.') + '$'
-                warnings.filterwarnings(
-                    "always", category=cat, message=mess,
-                    module=module_regex)
-                self._tmp_modules.add(mod)
-        warnings.showwarning = self._showwarning
-        self._clear_registries()
-
-        return self
-
-    def __exit__(self, *exc_info):
-        warnings.showwarning = self._orig_show
-        warnings.filters = self._filters
-        self._clear_registries()
-        self._entered = False
-        del self._orig_show
-        del self._filters
-
-    def _showwarning(self, message, category, filename, lineno,
-                     *args, **kwargs):
-        for cat, _, pattern, mod, rec in (
-                self._suppressions + self._tmp_suppressions)[::-1]:
-            if (issubclass(category, cat) and
-                    pattern.match(message.args[0]) is not None):
-                if mod is None:
-                    # Message and category match, either recorded or ignored
-                    if rec is not None:
-                        msg = WarningMessage(message, category, filename,
-                                             lineno, **kwargs)
-                        self.log.append(msg)
-                        rec.append(msg)
-                    return
-                # Use startswith, because warnings strips the c or o from
-                # .pyc/.pyo files.
-                elif mod.__file__.startswith(filename):
-                    # The message and module (filename) match
-                    if rec is not None:
-                        msg = WarningMessage(message, category, filename,
-                                             lineno, **kwargs)
-                        self.log.append(msg)
-                        rec.append(msg)
-                    return
-
-        # There is no filter in place, so pass to the outside handler
-        # unless we should only pass it once
-        if self._forwarding_rule == "always":
-            self._orig_show(message, category, filename, lineno,
-                            *args, **kwargs)
-            return
-
-        if self._forwarding_rule == "once":
-            signature = (message.args, category)
-        elif self._forwarding_rule == "module":
-            signature = (message.args, category, filename)
-        elif self._forwarding_rule == "location":
-            signature = (message.args, category, filename, lineno)
-
-        if signature in self._forwarded:
-            return
-        self._forwarded.add(signature)
-        self._orig_show(message, category, filename, lineno, *args, **kwargs)
-
-    def __call__(self, func):
-        """
-        Function decorator to apply certain suppressions to a whole
-        function.
-        """
-        @wraps(func)
-        def new_func(*args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
-
-        return new_func

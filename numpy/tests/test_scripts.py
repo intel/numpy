@@ -16,7 +16,6 @@ from numpy.testing import assert_
 
 is_inplace = isfile(pathjoin(dirname(np.__file__),  '..', 'setup.py'))
 
-
 def run_command(cmd, check_code=True):
     """ Run command sequence `cmd` returning exit code, stdout, stderr
 
@@ -49,7 +48,7 @@ def run_command(cmd, check_code=True):
         cmd = ['"{0}"'.format(c) if ' ' in c else c for c in cmd]
     proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
     stdout, stderr = proc.communicate()
-    if proc.poll() is None:
+    if proc.poll() == None:
         proc.terminate()
     if check_code and proc.returncode != 0:
         raise RuntimeError('\n'.join(
@@ -75,8 +74,15 @@ def test_f2py():
         assert_(success, "Warning: f2py not found in path")
     else:
         version = sys.version_info
-        major = str(version.major)
-        minor = str(version.minor)
+
+        # Python 2.6 'sys.version_info'
+        # is just a tuple, but this changes
+        # in Python 2.7 to have a more user-
+        # friendly interface with version[0]
+        # being the 'major' version and
+        # version[1] being the minor version
+        major = str(version[0])
+        minor = str(version[1])
 
         f2py_cmds = ('f2py', 'f2py' + major, 'f2py' + major + '.' + minor)
         success = False

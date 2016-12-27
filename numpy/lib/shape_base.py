@@ -35,7 +35,7 @@ def apply_along_axis(func1d, axis, arr, *args, **kwargs):
         Input array.
     args : any
         Additional arguments to `func1d`.
-    kwargs : any
+    kwargs: any
         Additional named arguments to `func1d`.
 
         .. versionadded:: 1.9.0
@@ -324,10 +324,6 @@ def dstack(tup):
     to make a single array. Rebuilds arrays divided by `dsplit`.
     This is a simple way to stack 2D arrays (images) into a single
     3D array for processing.
-
-    This function continues to be supported for backward compatibility, but
-    you should prefer ``np.concatenate`` or ``np.stack``. The ``np.stack``
-    function was added in NumPy 1.10.
 
     Parameters
     ----------

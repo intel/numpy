@@ -9,7 +9,6 @@ Examples::
     $ python runtests.py
     $ python runtests.py -s {SAMPLE_SUBMODULE}
     $ python runtests.py -t {SAMPLE_TEST}
-    $ python runtests.py -t {SAMPLE_TEST} -- {SAMPLE_NOSE_ARGUMENTS}
     $ python runtests.py --ipython
     $ python runtests.py --python somescript.py
     $ python runtests.py --bench
@@ -28,7 +27,7 @@ Generate C code coverage listing under build/lcov/:
 from __future__ import division, print_function
 
 #
-# This is a generic test runner script for projects using NumPy's test
+# This is a generic test runner script for projects using Numpy's test
 # framework. Change the following values to adapt to your project:
 #
 
@@ -36,7 +35,6 @@ PROJECT_MODULE = "numpy"
 PROJECT_ROOT_FILES = ['numpy', 'LICENSE.txt', 'setup.py']
 SAMPLE_TEST = "numpy/linalg/tests/test_linalg.py:test_byteorder_check"
 SAMPLE_SUBMODULE = "linalg"
-SAMPLE_NOSE_ARGUMENTS = "--pdb"
 
 EXTRA_PATH = ['/usr/lib/ccache', '/usr/lib/f90cache',
               '/usr/local/lib/ccache', '/usr/local/lib/f90cache']
@@ -110,9 +108,6 @@ def main(argv):
     parser.add_argument("--bench-compare", action="store", metavar="COMMIT",
                         help=("Compare benchmark results to COMMIT. "
                               "Note that you need to commit your changes first!"))
-    parser.add_argument("--raise-warnings", default=None, type=str,
-                        choices=('develop', 'release'),
-                        help="if 'develop', warnings are treated as errors")
     parser.add_argument("args", metavar="ARGS", default=[], nargs=REMAINDER,
                         help="Arguments to pass to Nose, Python or shell")
     args = parser.parse_args(argv)
@@ -296,7 +291,6 @@ def main(argv):
                       verbose=args.verbose,
                       extra_argv=extra_argv,
                       doctests=args.doctests,
-                      raise_warnings=args.raise_warnings,
                       coverage=args.coverage)
     finally:
         os.chdir(cwd)

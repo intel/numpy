@@ -1,11 +1,4 @@
-<div align="center">
-  <img src="http://www.numpy.org/_static/numpy_logo.png"><br>
-</div>
------------------
-|  **`Travis CI Status`**   |
-|-------------------|
-|[![Travis](https://img.shields.io/travis/numpy/numpy.svg)](https://travis-ci.org/numpy/numpy)|
-
+[![Travis](https://img.shields.io/travis/numpy/numpy.svg)](https://travis-ci.org/numpy/numpy) 
 
 NumPy is the fundamental package needed for scientific computing with Python.
 This package contains:

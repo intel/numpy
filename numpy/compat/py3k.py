@@ -7,13 +7,9 @@ from __future__ import division, absolute_import, print_function
 __all__ = ['bytes', 'asbytes', 'isfileobj', 'getexception', 'strchar',
            'unicode', 'asunicode', 'asbytes_nested', 'asunicode_nested',
            'asstr', 'open_latin1', 'long', 'basestring', 'sixu',
-           'integer_types', 'is_pathlib_path', 'npy_load_module', 'Path']
+           'integer_types', 'npy_load_module']
 
 import sys
-try:
-    from pathlib import Path
-except ImportError:
-    Path = None
 
 if sys.version_info[0] >= 3:
     import io
@@ -90,12 +86,6 @@ def asunicode_nested(x):
         return [asunicode_nested(y) for y in x]
     else:
         return asunicode(x)
-
-def is_pathlib_path(obj):
-    """
-    Check whether obj is a pathlib.Path object.
-    """
-    return Path is not None and isinstance(obj, Path)
 
 if sys.version_info[0] >= 3 and sys.version_info[1] >= 4:
     def npy_load_module(name, fn, info=None):

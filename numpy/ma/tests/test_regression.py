@@ -4,8 +4,7 @@ import warnings
 
 import numpy as np
 from numpy.testing import (assert_, TestCase, assert_array_equal,
-                           assert_allclose, run_module_suite,
-                           suppress_warnings)
+                           assert_allclose, run_module_suite)
 from numpy.compat import sixu
 
 rlevel = 1
@@ -70,9 +69,8 @@ class TestRegression(TestCase):
         # See gh-3336
         x = np.ma.masked_equal([1, 2, 3, 4, 5], 4)
         y = np.array([2, 2.5, 3.1, 3, 5])
-        # this test can be removed after deprecation.
-        with suppress_warnings() as sup:
-            sup.filter(DeprecationWarning, "bias and ddof have no effect")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
             r0 = np.ma.corrcoef(x, y, ddof=0)
             r1 = np.ma.corrcoef(x, y, ddof=1)
             # ddof should not have an effect (it gets cancelled out)

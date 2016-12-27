@@ -2,7 +2,7 @@ from __future__ import division, absolute_import, print_function
 
 import numpy as np
 from .numeric import uint8, ndarray, dtype
-from numpy.compat import long, basestring, is_pathlib_path
+from numpy.compat import long, basestring
 
 __all__ = ['memmap']
 
@@ -21,7 +21,7 @@ class memmap(ndarray):
     """Create a memory-map to an array stored in a *binary* file on disk.
 
     Memory-mapped files are used for accessing small segments of large files
-    on disk, without reading the entire file into memory.  NumPy's
+    on disk, without reading the entire file into memory.  Numpy's
     memmap's are array-like objects.  This differs from Python's ``mmap``
     module, which uses file-like objects.
 
@@ -39,7 +39,7 @@ class memmap(ndarray):
 
     Parameters
     ----------
-    filename : str, file-like object, or pathlib.Path instance
+    filename : str or file-like object
         The file name or file object to be used as the array data buffer.
     dtype : data-type, optional
         The data-type used to interpret the file contents.
@@ -82,7 +82,7 @@ class memmap(ndarray):
 
     Attributes
     ----------
-    filename : str or pathlib.Path instance
+    filename : str
         Path to the mapped file.
     offset : int
         Offset position in the file.
@@ -102,8 +102,11 @@ class memmap(ndarray):
     The memmap object can be used anywhere an ndarray is accepted.
     Given a memmap ``fp``, ``isinstance(fp, numpy.ndarray)`` returns
     ``True``.
-    
-    Memory-mapped files cannot be larger than 2GB on 32-bit systems.
+
+    Memory-mapped arrays use the Python memory-map object which
+    (prior to Python 2.5) does not allow files to be larger than a
+    certain size depending on the platform. This size is always < 2GB
+    even on 64-bit systems.
 
     When a memmap causes a file to be created or extended beyond its
     current size in the filesystem, the contents of the new part are
@@ -210,9 +213,6 @@ class memmap(ndarray):
         if hasattr(filename, 'read'):
             fid = filename
             own_file = False
-        elif is_pathlib_path(filename):
-            fid = filename.open((mode == 'c' and 'r' or mode)+'b')
-            own_file = True
         else:
             fid = open(filename, (mode == 'c' and 'r' or mode)+'b')
             own_file = True
@@ -267,8 +267,6 @@ class memmap(ndarray):
 
         if isinstance(filename, basestring):
             self.filename = os.path.abspath(filename)
-        elif is_pathlib_path(filename):
-            self.filename = filename.resolve()
         # py3 returns int for TemporaryFile().name
         elif (hasattr(filename, "name") and
               isinstance(filename.name, basestring)):
@@ -311,24 +309,3 @@ class memmap(ndarray):
         """
         if self.base is not None and hasattr(self.base, 'flush'):
             self.base.flush()
-
-    def __array_wrap__(self, arr, context=None):
-        arr = super(memmap, self).__array_wrap__(arr, context)
-
-        # Return a memmap if a memmap was given as the output of the
-        # ufunc. Leave the arr class unchanged if self is not a memmap
-        # to keep original memmap subclasses behavior
-        if self is arr or type(self) is not memmap:
-            return arr
-        # Return scalar instead of 0d memmap, e.g. for np.sum with
-        # axis=None
-        if arr.shape == ():
-            return arr[()]
-        # Return ndarray otherwise
-        return arr.view(np.ndarray)
-
-    def __getitem__(self, index):
-        res = super(memmap, self).__getitem__(index)
-        if type(res) is memmap and res._mmap is None:
-            return res.view(type=ndarray)
-        return res

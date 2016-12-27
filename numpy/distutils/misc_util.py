@@ -23,12 +23,11 @@ _tdata = tlocal()
 # store all created temporary directories so they can be deleted on exit
 _tmpdirs = []
 def clean_up_temporary_directory():
-    if _tmpdirs is not None:
-        for d in _tmpdirs:
-            try:
-                shutil.rmtree(d)
-            except OSError:
-                pass
+    for d in _tmpdirs:
+        try:
+            shutil.rmtree(d)
+        except OSError:
+            pass
 
 atexit.register(clean_up_temporary_directory)
 
@@ -1512,8 +1511,8 @@ class Configuration(object):
                 * macros
                 * include_dirs
                 * extra_compiler_args
-                * extra_f77_compile_args
-                * extra_f90_compile_args
+                * extra_f77_compiler_args
+                * extra_f90_compiler_args
                 * f2py_options
                 * language
 
@@ -1565,8 +1564,8 @@ class Configuration(object):
                 * macros
                 * include_dirs
                 * extra_compiler_args
-                * extra_f77_compile_args
-                * extra_f90_compile_args
+                * extra_f77_compiler_args
+                * extra_f90_compiler_args
                 * f2py_options
                 * language
 
@@ -2206,7 +2205,7 @@ def default_config_dict(name = None, parent_name = None, local_path=None):
                   'deprecated default_config_dict(%r,%r,%r)'
                   % (name, parent_name, local_path,
                      name, parent_name, local_path,
-                     ), stacklevel=2)
+                     ))
     c = Configuration(name, parent_name, local_path)
     return c.todict()
 

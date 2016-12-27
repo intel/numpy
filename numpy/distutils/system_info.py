@@ -20,7 +20,6 @@ classes are available:
   blas_info
   lapack_info
   openblas_info
-  blis_info
   blas_opt_info       # usage recommended
   lapack_opt_info     # usage recommended
   fftw_info,dfftw_info,sfftw_info
@@ -73,7 +72,7 @@ The file 'site.cfg' is looked for in
 The first one found is used to get system configuration options The
 format is that used by ConfigParser (i.e., Windows .INI style). The
 section ALL has options that are the default for each section. The
-available sections are fftw, atlas, and x11. Appropriate defaults are
+available sections are fftw, atlas, and x11. Appropiate defaults are
 used if nothing is specified.
 
 The order of finding the locations of resources is the following:
@@ -242,7 +241,7 @@ else:
         # tests are run in debug mode Python 3.
         tmp = open(os.devnull, 'w')
         p = sp.Popen(["gcc", "-print-multiarch"], stdout=sp.PIPE,
-                     stderr=tmp)
+                stderr=tmp)
     except (OSError, DistutilsError):
         # OSError if gcc is not installed, or SandboxViolation (DistutilsError
         # subclass) if an old setuptools bug is triggered (see gh-3160).
@@ -330,7 +329,6 @@ def get_info(name, notfound_action=0):
           'openblas': openblas_info,          # use blas_opt instead
           # openblas with embedded lapack
           'openblas_lapack': openblas_lapack_info, # use blas_opt instead
-          'blis': blis_info,                  # use blas_opt instead
           'lapack_mkl': lapack_mkl_info,      # use lapack_opt instead
           'blas_mkl': blas_mkl_info,          # use blas_opt instead
           'x11': x11_info,
@@ -490,7 +488,6 @@ class system_info(object):
         self.files.extend(get_standard_file('.numpy-site.cfg'))
         self.files.extend(get_standard_file('site.cfg'))
         self.parse_config_files()
-
         if self.section is not None:
             self.search_static_first = self.cp.getboolean(
                 self.section, 'search_static_first')
@@ -506,7 +503,7 @@ class system_info(object):
         libs = self.get_libraries()
         dirs = self.get_lib_dirs()
         # The extensions use runtime_library_dirs
-        r_dirs = self.get_runtime_lib_dirs()
+        r_dirs = self.get_runtime_lib_dirs() 
         # Intrinsic distutils use rpath, we simply append both entries
         # as though they were one entry
         r_dirs.extend(self.get_runtime_lib_dirs(key='rpath'))
@@ -517,20 +514,17 @@ class system_info(object):
                 dict_append(info, **i)
             else:
                 log.info('Library %s was not found. Ignoring' % (lib))
-
-            if r_dirs:
-                i = self.check_libs(r_dirs, [lib])
-                if i is not None:
-                    # Swap library keywords found to runtime_library_dirs
-                    # the libraries are insisting on the user having defined
-                    # them using the library_dirs, and not necessarily by
-                    # runtime_library_dirs
-                    del i['libraries']
-                    i['runtime_library_dirs'] = i.pop('library_dirs')
-                    dict_append(info, **i)
-                else:
-                    log.info('Runtime library %s was not found. Ignoring' % (lib))
-
+            i = self.check_libs(r_dirs, [lib])
+            if i is not None:
+                # Swap library keywords found to runtime_library_dirs
+                # the libraries are insisting on the user having defined
+                # them using the library_dirs, and not necessarily by
+                # runtime_library_dirs
+                del i['libraries']
+                i['runtime_library_dirs'] = i.pop('library_dirs')
+                dict_append(info, **i)
+            else:
+                log.info('Runtime library %s was not found. Ignoring' % (lib))
         return info
 
     def set_info(self, **info):
@@ -573,7 +567,7 @@ class system_info(object):
             if notfound_action:
                 if not self.has_info():
                     if notfound_action == 1:
-                        warnings.warn(self.notfounderror.__doc__, stacklevel=2)
+                        warnings.warn(self.notfounderror.__doc__)
                     elif notfound_action == 2:
                         raise self.notfounderror(self.notfounderror.__doc__)
                     else:
@@ -642,7 +636,7 @@ class system_info(object):
         ret = []
         for d in dirs:
             if len(d) > 0 and not os.path.isdir(d):
-                warnings.warn('Specified path %s is invalid.' % d, stacklevel=2)
+                warnings.warn('Specified path %s is invalid.' % d)
                 continue
 
             if d not in ret:
@@ -655,10 +649,7 @@ class system_info(object):
         return self.get_paths(self.section, key)
 
     def get_runtime_lib_dirs(self, key='runtime_library_dirs'):
-        path = self.get_paths(self.section, key)
-        if path == ['']:
-            path = []
-        return path
+        return self.get_paths(self.section, key)
 
     def get_include_dirs(self, key='include_dirs'):
         return self.get_paths(self.section, key)
@@ -726,62 +717,70 @@ class system_info(object):
         if not info:
             log.info('  libraries %s not found in %s', ','.join(libs),
                      lib_dirs)
-
         return info
 
-    def _find_lib(self, lib_dir, lib, exts):
+    def _lib_list(self, lib_dir, libs, exts):
         assert is_string(lib_dir)
+        liblist = []
         # under windows first try without 'lib' prefix
         if sys.platform == 'win32':
             lib_prefixes = ['', 'lib']
         else:
             lib_prefixes = ['lib']
         # for each library name, see if we can find a file for it.
-        for ext in exts:
-            for prefix in lib_prefixes:
-                p = self.combine_paths(lib_dir, prefix + lib + ext)
+        for l in libs:
+            for ext in exts:
+                for prefix in lib_prefixes:
+                    p = self.combine_paths(lib_dir, prefix + l + ext)
+                    if p:
+                        break
                 if p:
+                    assert len(p) == 1
+                    # ??? splitext on p[0] would do this for cygwin
+                    # doesn't seem correct
+                    if ext == '.dll.a':
+                        l += '.dll'
+                    liblist.append(l)
                     break
-            if p:
-                assert len(p) == 1
-                # ??? splitext on p[0] would do this for cygwin
-                # doesn't seem correct
-                if ext == '.dll.a':
-                    lib += '.dll'
-                return lib
-
-        return False
-
-    def _find_libs(self, lib_dirs, libs, exts):
-        # make sure we preserve the order of libs, as it can be important
-        found_dirs, found_libs = [], []
-        for lib in libs:
-            for lib_dir in lib_dirs:
-                found_lib = self._find_lib(lib_dir, lib, exts)
-                if found_lib:
-                    found_libs.append(found_lib)
-                    if lib_dir not in found_dirs:
-                        found_dirs.append(lib_dir)
-                    break
-        return found_dirs, found_libs
+        return liblist
 
     def _check_libs(self, lib_dirs, libs, opt_libs, exts):
         """Find mandatory and optional libs in expected paths.
 
         Missing optional libraries are silently forgotten.
         """
-        if not is_sequence(lib_dirs):
-            lib_dirs = [lib_dirs]
         # First, try to find the mandatory libraries
-        found_dirs, found_libs = self._find_libs(lib_dirs, libs, exts)
+        if is_sequence(lib_dirs):
+            found_libs, found_dirs = [], []
+            for dir_ in lib_dirs:
+                found_libs1 = self._lib_list(dir_, libs, exts)
+                # It's possible that we'll find the same library in multiple
+                # directories. It's also possible that we'll find some
+                # libraries on in directory, and some in another. So the
+                # obvious thing would be to use a set instead of a list, but I
+                # don't know if preserving order matters (does it?).
+                for found_lib in found_libs1:
+                    if found_lib not in found_libs:
+                        found_libs.append(found_lib)
+                        if dir_ not in found_dirs:
+                            found_dirs.append(dir_)
+        else:
+            found_libs = self._lib_list(lib_dirs, libs, exts)
+            found_dirs = [lib_dirs]
         if len(found_libs) > 0 and len(found_libs) == len(libs):
-            # Now, check for optional libraries
-            opt_found_dirs, opt_found_libs = self._find_libs(lib_dirs, opt_libs, exts)
-            found_libs.extend(opt_found_libs)
-            for lib_dir in opt_found_dirs:
-                if lib_dir not in found_dirs:
-                    found_dirs.append(lib_dir)
             info = {'libraries': found_libs, 'library_dirs': found_dirs}
+            # Now, check for optional libraries
+            if is_sequence(lib_dirs):
+                for dir_ in lib_dirs:
+                    opt_found_libs = self._lib_list(dir_, opt_libs, exts)
+                    if opt_found_libs:
+                        if dir_ not in found_dirs:
+                            found_dirs.extend(dir_)
+                        found_libs.extend(opt_found_libs)
+            else:
+                opt_found_libs = self._lib_list(lib_dirs, opt_libs, exts)
+                if opt_found_libs:
+                    found_libs.extend(opt_found_libs)
             return info
         else:
             return None
@@ -971,11 +970,10 @@ class mkl_info(system_info):
         paths = os.environ.get('LD_LIBRARY_PATH', '').split(os.pathsep)
         ld_so_conf = '/etc/ld.so.conf'
         if os.path.isfile(ld_so_conf):
-            with open(ld_so_conf, 'r') as f:
-                for d in f:
-                    d = d.strip()
-                    if d:
-                        paths.append(d)
+            for d in open(ld_so_conf, 'r'):
+                d = d.strip()
+                if d:
+                    paths.append(d)
         intel_mkl_dirs = []
         for path in paths:
             path_atoms = path.split(os.sep)
@@ -1104,7 +1102,7 @@ class atlas_info(system_info):
     Could not find lapack library within the ATLAS installation.
 *********************************************************************
 """
-            warnings.warn(message, stacklevel=2)
+            warnings.warn(message)
             self.set_info(**info)
             return
 
@@ -1135,7 +1133,7 @@ class atlas_info(system_info):
     numpy/INSTALL.txt.
 *********************************************************************
 """ % (lapack_lib, sz / 1024)
-                warnings.warn(message, stacklevel=2)
+                warnings.warn(message)
             else:
                 info['language'] = 'f77'
 
@@ -1420,7 +1418,7 @@ Linkage with ATLAS requires gfortran. Use
 when building extension libraries that use ATLAS.
 Make sure that -lgfortran is used for C++ extensions.
 *****************************************************
-""", stacklevel=2)
+""")
                 dict_append(info, language='f90',
                             define_macros=[('ATLAS_REQUIRES_GFORTRAN', None)])
     except Exception:  # failed to get version from file -- maybe on Windows
@@ -1471,14 +1469,14 @@ class lapack_opt_info(system_info):
 
     def calc_info(self):
 
-        lapack_mkl_info = get_info('lapack_mkl')
-        if lapack_mkl_info:
-            self.set_info(**lapack_mkl_info)
-            return
-
         openblas_info = get_info('openblas_lapack')
         if openblas_info:
             self.set_info(**openblas_info)
+            return
+
+        lapack_mkl_info = get_info('lapack_mkl')
+        if lapack_mkl_info:
+            self.set_info(**lapack_mkl_info)
             return
 
         atlas_info = get_info('atlas_3_10_threads')
@@ -1531,7 +1529,7 @@ class lapack_opt_info(system_info):
             info = atlas_info
 
         else:
-            warnings.warn(AtlasNotFoundError.__doc__, stacklevel=2)
+            warnings.warn(AtlasNotFoundError.__doc__)
             need_blas = 1
             need_lapack = 1
             dict_append(info, define_macros=[('NO_ATLAS_INFO', 1)])
@@ -1542,10 +1540,10 @@ class lapack_opt_info(system_info):
             if lapack_info:
                 dict_append(info, **lapack_info)
             else:
-                warnings.warn(LapackNotFoundError.__doc__, stacklevel=2)
+                warnings.warn(LapackNotFoundError.__doc__)
                 lapack_src_info = get_info('lapack_src')
                 if not lapack_src_info:
-                    warnings.warn(LapackSrcNotFoundError.__doc__, stacklevel=2)
+                    warnings.warn(LapackSrcNotFoundError.__doc__)
                     return
                 dict_append(info, libraries=[('flapack_src', lapack_src_info)])
 
@@ -1554,10 +1552,10 @@ class lapack_opt_info(system_info):
             if blas_info:
                 dict_append(info, **blas_info)
             else:
-                warnings.warn(BlasNotFoundError.__doc__, stacklevel=2)
+                warnings.warn(BlasNotFoundError.__doc__)
                 blas_src_info = get_info('blas_src')
                 if not blas_src_info:
-                    warnings.warn(BlasSrcNotFoundError.__doc__, stacklevel=2)
+                    warnings.warn(BlasSrcNotFoundError.__doc__)
                     return
                 dict_append(info, libraries=[('fblas_src', blas_src_info)])
 
@@ -1574,11 +1572,6 @@ class blas_opt_info(system_info):
         blas_mkl_info = get_info('blas_mkl')
         if blas_mkl_info:
             self.set_info(**blas_mkl_info)
-            return
-
-        blis_info = get_info('blis')
-        if blis_info:
-            self.set_info(**blis_info)
             return
 
         openblas_info = get_info('openblas')
@@ -1634,7 +1627,7 @@ class blas_opt_info(system_info):
         if atlas_info:
             info = atlas_info
         else:
-            warnings.warn(AtlasNotFoundError.__doc__, stacklevel=2)
+            warnings.warn(AtlasNotFoundError.__doc__)
             need_blas = 1
             dict_append(info, define_macros=[('NO_ATLAS_INFO', 1)])
 
@@ -1643,10 +1636,10 @@ class blas_opt_info(system_info):
             if blas_info:
                 dict_append(info, **blas_info)
             else:
-                warnings.warn(BlasNotFoundError.__doc__, stacklevel=2)
+                warnings.warn(BlasNotFoundError.__doc__)
                 blas_src_info = get_info('blas_src')
                 if not blas_src_info:
-                    warnings.warn(BlasSrcNotFoundError.__doc__, stacklevel=2)
+                    warnings.warn(BlasSrcNotFoundError.__doc__)
                     return
                 dict_append(info, libraries=[('fblas_src', blas_src_info)])
 
@@ -1795,31 +1788,6 @@ class openblas_lapack_info(openblas_info):
         finally:
             shutil.rmtree(tmpdir)
         return res
-
-
-class blis_info(blas_info):
-    section = 'blis'
-    dir_env_var = 'BLIS'
-    _lib_names = ['blis']
-    notfounderror = BlasNotFoundError
-
-    def calc_info(self):
-        lib_dirs = self.get_lib_dirs()
-        blis_libs = self.get_libs('libraries', self._lib_names)
-        if blis_libs == self._lib_names:
-            blis_libs = self.get_libs('blis_libs', self._lib_names)
-
-        info = self.check_libs2(lib_dirs, blis_libs, [])
-        if info is None:
-            return
-
-        # Add include dirs
-        incl_dirs = self.get_include_dirs()
-        dict_append(info,
-                    language='c',
-                    define_macros=[('HAVE_CBLAS', None)],
-                    include_dirs=incl_dirs)
-        self.set_info(**info)
 
 
 class blas_src_info(system_info):
@@ -2369,7 +2337,7 @@ def dict_append(d, **kws):
             languages.append(v)
             continue
         if k in d:
-            if k in ['library_dirs', 'include_dirs',
+            if k in ['library_dirs', 'include_dirs', 
                      'extra_compile_args', 'extra_link_args',
                      'runtime_library_dirs', 'define_macros']:
                 [d[k].append(vv) for vv in v if vv not in d[k]]

@@ -13,11 +13,11 @@ from itertools import chain
 
 import numpy as np
 from numpy.testing import (
-        run_module_suite, TestCase, assert_, assert_equal, IS_PYPY,
+        run_module_suite, TestCase, assert_, assert_equal,
         assert_almost_equal, assert_array_equal, assert_array_almost_equal,
-        assert_raises, assert_warns, dec, suppress_warnings
+        assert_raises, assert_warns, dec
         )
-from numpy.testing.utils import _assert_valid_refcount, HAS_REFCOUNT
+from numpy.testing.utils import _assert_valid_refcount
 from numpy.compat import asbytes, asunicode, asbytes_nested, long, sixu
 
 rlevel = 1
@@ -138,8 +138,8 @@ class TestRegression(TestCase):
         self.assertTrue(a[0] != 'auto')
         b = np.linspace(0, 10, 11)
         # This should return true for now, but will eventually raise an error:
-        with suppress_warnings() as sup:
-            sup.filter(FutureWarning)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
             self.assertTrue(b != 'auto')
         self.assertTrue(b[0] != 'auto')
 
@@ -706,14 +706,12 @@ class TestRegression(TestCase):
         # Issue gh-3001
         d = 123.
         a = np.array([d, 1], dtype=object)
-        if HAS_REFCOUNT:
-            ref_d = sys.getrefcount(d)
+        ref_d = sys.getrefcount(d)
         try:
             a.take([0, 100])
         except IndexError:
             pass
-        if HAS_REFCOUNT:
-            assert_(ref_d == sys.getrefcount(d))
+        assert_(ref_d == sys.getrefcount(d))
 
     def test_array_str_64bit(self, level=rlevel):
         # Ticket #501
@@ -811,10 +809,9 @@ class TestRegression(TestCase):
         # This might seem odd as compared to the value error below. This
         # is due to the fact that the new code always uses "nonzero" logic
         # and the boolean special case is not taken.
-        with suppress_warnings() as sup:
-            sup.filter(DeprecationWarning)
-            sup.filter(FutureWarning)
-            sup.filter(np.VisibleDeprecationWarning)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecationWarning)
+            warnings.simplefilter('ignore', np.VisibleDeprecationWarning)
             self.assertRaises(IndexError, ia, x, s, np.zeros(9, dtype=float))
             self.assertRaises(IndexError, ia, x, s, np.zeros(11, dtype=float))
         # Old special case (different code path):
@@ -1293,15 +1290,9 @@ class TestRegression(TestCase):
                 for k in range(3):
                     # Try to ensure that x->data contains non-zero floats
                     x = np.array([123456789e199], dtype=np.float64)
-                    if IS_PYPY:
-                        x.resize((m, 0), refcheck=False)
-                    else:
-                        x.resize((m, 0))
+                    x.resize((m, 0))
                     y = np.array([123456789e199], dtype=np.float64)
-                    if IS_PYPY:
-                        y.resize((0, n),refcheck=False)
-                    else:
-                        y.resize((0, n))
+                    y.resize((0, n))
 
                     # `dot` should just return zero (m,n) matrix
                     z = np.dot(x, y)
@@ -1467,7 +1458,6 @@ class TestRegression(TestCase):
         x[x.nonzero()] = x.ravel()[:1]
         assert_(x[0, 1] == x[0, 0])
 
-    @dec.skipif(not HAS_REFCOUNT, "python has no sys.getrefcount")
     def test_structured_arrays_with_objects2(self):
         # Ticket #1299 second test
         stra = 'aaaa'
@@ -1525,17 +1515,19 @@ class TestRegression(TestCase):
         dtypes = [x for x in np.typeDict.values()
                   if (issubclass(x, np.number)
                       and not issubclass(x, np.timedelta64))]
-        a = np.array([], np.bool_)  # not x[0] because it is unordered
+        a = np.array([], dtypes[0])
         failures = []
-
-        for x in dtypes:
-            b = a.astype(x)
-            for y in dtypes:
-                c = a.astype(y)
-                try:
-                    np.dot(b, c)
-                except TypeError:
-                    failures.append((x, y))
+        # ignore complex warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', np.ComplexWarning)
+            for x in dtypes:
+                b = a.astype(x)
+                for y in dtypes:
+                    c = a.astype(y)
+                    try:
+                        np.dot(b, c)
+                    except TypeError:
+                        failures.append((x, y))
         if failures:
             raise AssertionError("Failures: %r" % failures)
 
@@ -1580,7 +1572,6 @@ class TestRegression(TestCase):
         y = np.add(x, x, x)
         assert_equal(id(x), id(y))
 
-    @dec.skipif(not HAS_REFCOUNT, "python has no sys.getrefcount")
     def test_take_refcount(self):
         # ticket #939
         a = np.arange(16, dtype=np.float)
@@ -1626,8 +1617,8 @@ class TestRegression(TestCase):
         for tp in [np.csingle, np.cdouble, np.clongdouble]:
             x = tp(1+2j)
             assert_warns(np.ComplexWarning, float, x)
-            with suppress_warnings() as sup:
-                sup.filter(np.ComplexWarning)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
                 assert_equal(float(x), float(x.real))
 
     def test_complex_scalar_complex_cast(self):
@@ -1740,7 +1731,7 @@ class TestRegression(TestCase):
         b = np.array(a, dtype=object)
         a[()] = b
         assert_raises(TypeError, int, a)
-        # NumPy has no tp_traverse currently, so circular references
+        # Numpy has no tp_traverse currently, so circular references
         # cannot be detected. So resolve it:
         a[()] = 0
 
@@ -1754,8 +1745,7 @@ class TestRegression(TestCase):
         # causing segmentation faults (gh-3787)
         a = np.array(object(), dtype=object)
         np.copyto(a, a)
-        if HAS_REFCOUNT:
-            assert_(sys.getrefcount(a[()]) == 2)
+        assert_equal(sys.getrefcount(a[()]), 2)
         a[()].__class__  # will segfault if object was deleted
 
     def test_zerosize_accumulate(self):
@@ -1958,7 +1948,6 @@ class TestRegression(TestCase):
             a = np.empty((100000000,), dtype='i1')
             del a
 
-    @dec.skipif(not HAS_REFCOUNT, "python has no sys.getrefcount")
     def test_ufunc_reduce_memoryleak(self):
         a = np.arange(6)
         acnt = sys.getrefcount(a)
@@ -1989,7 +1978,7 @@ class TestRegression(TestCase):
     def test_string_truncation_ucs2(self):
         # Ticket #2081. Python compiled with two byte unicode
         # can lead to truncation if itemsize is not properly
-        # adjusted for NumPy's four byte unicode.
+        # adjusted for Numpy's four byte unicode.
         if sys.version_info[0] >= 3:
             a = np.array(['abcd'])
         else:
@@ -2163,7 +2152,6 @@ class TestRegression(TestCase):
         assert_equal(uf(a), ())
         assert_array_equal(a, [[3, 2, 1], [5, 4], [9, 7, 8, 6]])
 
-    @dec.skipif(not HAS_REFCOUNT, "python has no sys.getrefcount")
     def test_leak_in_structured_dtype_comparison(self):
         # gh-6250
         recordtype = np.dtype([('a', np.float64),
@@ -2193,21 +2181,6 @@ class TestRegression(TestCase):
         # gh-6922. The following should not segfault
         a = np.ones(3, dtype=[('object', 'O'), ('int', '<i2')])
         a.sort()
-
-    def test_reshape_size_overflow(self):
-        # gh-7455
-        a = np.ones(20)[::2]
-        if np.dtype(np.intp).itemsize == 8:
-            # 64 bit. The following are the prime factors of 2**63 + 5,
-            # plus a leading 2, so when multiplied together as int64,
-            # the result overflows to a total size of 10.
-            new_shape = (2, 13, 419, 691, 823, 2977518503)
-        else:
-            # 32 bit. The following are the prime factors of 2**31 + 5,
-            # plus a leading 2, so when multiplied together as int32,
-            # the result overflows to a total size of 10.
-            new_shape = (2, 7, 7, 43826197)
-        assert_raises(ValueError, a.reshape, new_shape)
 
 
 if __name__ == "__main__":

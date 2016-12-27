@@ -14,7 +14,6 @@
 #include "npy_pycompat.h"
 
 #include "arrayobject.h"
-#include "ctors.h"
 #include "mapping.h"
 #include "lowlevel_strided_loops.h"
 #include "scalartypes.h"
@@ -132,10 +131,6 @@ PyArray_ToFile(PyArrayObject *self, FILE *fp, char *sep, char *format)
             PyErr_SetString(PyExc_IOError,
                     "cannot write object arrays to a file in binary mode");
             return -1;
-        }
-        if (PyArray_DESCR(self)->elsize == 0) {
-            /* For zero-width data types there's nothing to write */
-            return 0;
         }
         if (npy_fallocate(PyArray_NBYTES(self), fp) != 0) {
             return -1;
@@ -601,31 +596,17 @@ PyArray_View(PyArrayObject *self, PyArray_Descr *type, PyTypeObject *pytype)
         subtype = Py_TYPE(self);
     }
 
-    if (type != NULL && (PyArray_FLAGS(self) & NPY_ARRAY_WARN_ON_WRITE)) {
-        const char *msg =
-            "Numpy has detected that you may be viewing or writing to an array "
-            "returned by selecting multiple fields in a structured array. \n\n"
-            "This code may break in numpy 1.13 because this will return a view "
-            "instead of a copy -- see release notes for details.";
-        /* 2016-09-19, 1.12 */
-        if (DEPRECATE_FUTUREWARNING(msg) < 0) {
-            return NULL;
-        }
-        /* Only warn once per array */
-        PyArray_CLEARFLAGS(self, NPY_ARRAY_WARN_ON_WRITE);
-    }
-
     flags = PyArray_FLAGS(self);
 
     dtype = PyArray_DESCR(self);
     Py_INCREF(dtype);
-    ret = (PyArrayObject *)PyArray_NewFromDescr_int(subtype,
+    ret = (PyArrayObject *)PyArray_NewFromDescr(subtype,
                                dtype,
                                PyArray_NDIM(self), PyArray_DIMS(self),
                                PyArray_STRIDES(self),
                                PyArray_DATA(self),
                                flags,
-                               (PyObject *)self, 0, 1);
+                               (PyObject *)self);
     if (ret == NULL) {
         Py_XDECREF(type);
         return NULL;

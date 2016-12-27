@@ -94,14 +94,14 @@ class FCompiler(CCompiler):
     """
 
     # These are the environment variables and distutils keys used.
-    # Each configuration description is
+    # Each configuration descripition is
     # (<hook name>, <environment variable>, <key in distutils.cfg>, <convert>)
     # The hook names are handled by the self._environment_hook method.
     #  - names starting with 'self.' call methods in this class
     #  - names starting with 'exe.' return the key in the executables dict
     #  - names like 'flags.YYY' return self.get_flag_YYY()
     # convert is either None or a function to convert a string to the
-    # appropriate type used.
+    # appropiate type used.
 
     distutils_vars = EnvironmentConfig(
         distutils_section='config_fc',
@@ -287,7 +287,7 @@ class FCompiler(CCompiler):
 
     def find_executables(self):
         """Go through the self.executables dictionary, and attempt to
-        find and assign appropriate executables.
+        find and assign appropiate executables.
 
         Executable names are looked for in the environment (environment
         variables, the distutils.cfg, and command line), the 0th-element of
@@ -297,7 +297,7 @@ class FCompiler(CCompiler):
         or the Fortran 90 compiler executable is used, unless overridden
         by an environment setting.
 
-        Subclasses should call this if overridden.
+        Subclasses should call this if overriden.
         """
         assert self._is_customised
         exe_cache = self._exe_cache

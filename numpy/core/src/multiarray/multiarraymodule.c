@@ -1895,7 +1895,7 @@ array_scalar(PyObject *NPY_UNUSED(ignored), PyObject *args, PyObject *kwds)
         }
         else {
 #if defined(NPY_PY3K)
-            /* Backward compatibility with Python 2 NumPy pickles */
+            /* Backward compatibility with Python 2 Numpy pickles */
             if (PyUnicode_Check(obj)) {
                 tmpobj = PyUnicode_AsLatin1String(obj);
                 obj = tmpobj;
@@ -1980,10 +1980,16 @@ fail:
 static PyObject *
 array_count_nonzero(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwds)
 {
+    PyObject *array_in;
     PyArrayObject *array;
     npy_intp count;
 
-    if (!PyArg_ParseTuple(args, "O&", PyArray_Converter, &array)) {
+    if (!PyArg_ParseTuple(args, "O", &array_in)) {
+        return NULL;
+    }
+
+    array = (PyArrayObject *)PyArray_FromAny(array_in, NULL, 0, 0, 0, NULL);
+    if (array == NULL) {
         return NULL;
     }
 
@@ -3635,6 +3641,7 @@ _vec_string_with_args(PyArrayObject* char_array, PyArray_Descr* type,
     PyArrayMultiIterObject* in_iter = NULL;
     PyArrayObject* result = NULL;
     PyArrayIterObject* out_iter = NULL;
+    PyObject* args_tuple = NULL;
     Py_ssize_t i, n, nargs;
 
     nargs = PySequence_Size(args) + 1;
@@ -3671,18 +3678,18 @@ _vec_string_with_args(PyArrayObject* char_array, PyArray_Descr* type,
         goto err;
     }
 
+    args_tuple = PyTuple_New(n);
+    if (args_tuple == NULL) {
+        goto err;
+    }
+
     while (PyArray_MultiIter_NOTDONE(in_iter)) {
         PyObject* item_result;
-        PyObject* args_tuple = PyTuple_New(n);
-        if (args_tuple == NULL) {
-            goto err;
-        }
 
         for (i = 0; i < n; i++) {
             PyArrayIterObject* it = in_iter->iters[i];
             PyObject* arg = PyArray_ToScalar(PyArray_ITER_DATA(it), it->ao);
             if (arg == NULL) {
-                Py_DECREF(args_tuple);
                 goto err;
             }
             /* Steals ref to arg */
@@ -3690,7 +3697,6 @@ _vec_string_with_args(PyArrayObject* char_array, PyArray_Descr* type,
         }
 
         item_result = PyObject_CallObject(method, args_tuple);
-        Py_DECREF(args_tuple);
         if (item_result == NULL) {
             goto err;
         }
@@ -3709,12 +3715,14 @@ _vec_string_with_args(PyArrayObject* char_array, PyArray_Descr* type,
 
     Py_DECREF(in_iter);
     Py_DECREF(out_iter);
+    Py_DECREF(args_tuple);
 
     return (PyObject*)result;
 
  err:
     Py_XDECREF(in_iter);
     Py_XDECREF(out_iter);
+    Py_XDECREF(args_tuple);
     Py_XDECREF(result);
 
     return 0;
@@ -3861,7 +3869,7 @@ _PyArray_SigintHandler(int signum)
 {
     PyOS_setsig(signum, SIG_IGN);
     /*
-     * jump buffer may be uninitialized as SIGINT allowing functions are usually
+     * jump buffer may be unitialized as SIGINT allowing functions are usually
      * run in other threads than the master thread that receives the signal
      */
     if (sigint_buf_init > 0) {
@@ -4139,7 +4147,7 @@ static struct PyMethodDef array_module_methods[] = {
     {"matmul",
         (PyCFunction)array_matmul,
         METH_VARARGS | METH_KEYWORDS, NULL},
-    {"c_einsum",
+    {"einsum",
         (PyCFunction)array_einsum,
         METH_VARARGS|METH_KEYWORDS, NULL},
     {"_fastCopyAndTranspose",
@@ -4224,8 +4232,6 @@ static struct PyMethodDef array_module_methods[] = {
     {"digitize", (PyCFunction)arr_digitize,
         METH_VARARGS | METH_KEYWORDS, NULL},
     {"interp", (PyCFunction)arr_interp,
-        METH_VARARGS | METH_KEYWORDS, NULL},
-    {"interp_complex", (PyCFunction)arr_interp_complex,
         METH_VARARGS | METH_KEYWORDS, NULL},
     {"ravel_multi_index", (PyCFunction)arr_ravel_multi_index,
         METH_VARARGS | METH_KEYWORDS, NULL},
@@ -4482,7 +4488,7 @@ intern_strings(void)
 
     return npy_ma_str_array && npy_ma_str_array_prepare &&
            npy_ma_str_array_wrap && npy_ma_str_array_finalize &&
-           npy_ma_str_buffer && npy_ma_str_ufunc &&
+           npy_ma_str_array_finalize && npy_ma_str_ufunc &&
            npy_ma_str_order && npy_ma_str_copy && npy_ma_str_dtype &&
            npy_ma_str_ndmin;
 }

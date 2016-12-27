@@ -635,7 +635,7 @@ def crackline(line, reset=0):
     """
     reset=-1  --- initialize
     reset=0   --- crack the line
-    reset=1   --- final check if mismatch of blocks occurred
+    reset=1   --- final check if mismatch of blocks occured
 
     Cracked data is saved in grouplist[0].
     """

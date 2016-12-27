@@ -354,7 +354,7 @@ int main (void)
             list of header paths
         libraries : seq
             list of libraries to link the code snippet to
-        library_dirs : seq
+        libraru_dirs : seq
             list of library paths
         decl : dict
             for every (key, value), the declaration in the value will be
@@ -431,7 +431,7 @@ int main (void)
                       "use it anymore, and avoid configuration checks \n" \
                       "involving running executable on the target machine.\n" \
                       "+++++++++++++++++++++++++++++++++++++++++++++++++\n",
-                      DeprecationWarning, stacklevel=2)
+                      DeprecationWarning)
         from distutils.ccompiler import CompileError, LinkError
         self._check_compiler()
         exitcode, output = 255, ''

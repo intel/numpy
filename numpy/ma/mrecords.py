@@ -743,7 +743,7 @@ def fromtextfile(fname, delimitor=None, commentchar='#', missingchar='',
         if len(vartypes) != nfields:
             msg = "Attempting to %i dtypes for %i fields!"
             msg += " Reverting to default."
-            warnings.warn(msg % (len(vartypes), nfields), stacklevel=2)
+            warnings.warn(msg % (len(vartypes), nfields))
             vartypes = _guessvartypes(_variables[0])
 
     # Construct the descriptor.
@@ -776,7 +776,7 @@ def addfield(mrecord, newfield, newfieldname=None):
     # Create a new empty recarray
     newdtype = np.dtype(_data.dtype.descr + [(newfieldname, newfield.dtype)])
     newdata = recarray(_data.shape, newdtype)
-    # Add the existing field
+    # Add the exisintg field
     [newdata.setfield(_data.getfield(*f), *f)
          for f in _data.dtype.fields.values()]
     # Add the new field

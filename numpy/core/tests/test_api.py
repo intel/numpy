@@ -6,7 +6,7 @@ import numpy as np
 from numpy.compat import sixu
 from numpy.testing import (
      run_module_suite, assert_, assert_equal, assert_array_equal,
-     assert_raises, HAS_REFCOUNT
+     assert_raises
 )
 
 # Switch between new behaviour when NPY_RELAXED_STRIDES_CHECKING is set.
@@ -19,26 +19,23 @@ def test_array_array():
     tndarray = type(ones11)
     # Test is_ndarray
     assert_equal(np.array(ones11, dtype=np.float64), ones11)
-    if HAS_REFCOUNT:
-        old_refcount = sys.getrefcount(tndarray)
-        np.array(ones11)
-        assert_equal(old_refcount, sys.getrefcount(tndarray))
+    old_refcount = sys.getrefcount(tndarray)
+    np.array(ones11)
+    assert_equal(old_refcount, sys.getrefcount(tndarray))
 
     # test None
     assert_equal(np.array(None, dtype=np.float64),
                  np.array(np.nan, dtype=np.float64))
-    if HAS_REFCOUNT:
-        old_refcount = sys.getrefcount(tobj)
-        np.array(None, dtype=np.float64)
-        assert_equal(old_refcount, sys.getrefcount(tobj))
+    old_refcount = sys.getrefcount(tobj)
+    np.array(None, dtype=np.float64)
+    assert_equal(old_refcount, sys.getrefcount(tobj))
 
     # test scalar
     assert_equal(np.array(1.0, dtype=np.float64),
                  np.ones((), dtype=np.float64))
-    if HAS_REFCOUNT:
-        old_refcount = sys.getrefcount(np.float64)
-        np.array(np.array(1.0, dtype=np.float64), dtype=np.float64)
-        assert_equal(old_refcount, sys.getrefcount(np.float64))
+    old_refcount = sys.getrefcount(np.float64)
+    np.array(np.array(1.0, dtype=np.float64), dtype=np.float64)
+    assert_equal(old_refcount, sys.getrefcount(np.float64))
 
     # test string
     S2 = np.dtype((str, 2))
@@ -67,7 +64,7 @@ def test_array_array():
                      np.ones((), dtype=U5))
 
     builtins = getattr(__builtins__, '__dict__', __builtins__)
-    assert_(hasattr(builtins, 'get'))
+    assert_(isinstance(builtins, dict))
 
     # test buffer
     _buffer = builtins.get("buffer")

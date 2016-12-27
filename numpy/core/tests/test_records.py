@@ -3,14 +3,13 @@ from __future__ import division, absolute_import, print_function
 import sys
 import collections
 import pickle
-import warnings
 from os import path
 
 import numpy as np
 from numpy.compat import asbytes
 from numpy.testing import (
     TestCase, run_module_suite, assert_, assert_equal, assert_array_equal,
-    assert_array_almost_equal, assert_raises, assert_warns
+    assert_array_almost_equal, assert_raises
     )
 
 
@@ -127,11 +126,8 @@ class TestFromrecords(TestCase):
                                            ('c', 'i4,i4')]))
         assert_equal(r['c'].dtype.type, np.record)
         assert_equal(type(r['c']), np.recarray)
-
-        # suppress deprecation warning in 1.12 (remove in 1.13)
-        with assert_warns(FutureWarning):
-            assert_equal(r[['a', 'b']].dtype.type, np.record)
-            assert_equal(type(r[['a', 'b']]), np.recarray)
+        assert_equal(r[['a', 'b']].dtype.type, np.record)
+        assert_equal(type(r[['a', 'b']]), np.recarray)
 
         #and that it preserves subclasses (gh-6949)
         class C(np.recarray):
@@ -258,20 +254,6 @@ class TestFromrecords(TestCase):
         assert_equal(a[0]['qux'].D, asbytes('fgehi'))
         assert_equal(a[0]['qux']['D'], asbytes('fgehi'))
 
-    def test_zero_width_strings(self):
-        # Test for #6430, based on the test case from #1901
-
-        cols = [['test'] * 3, [''] * 3]
-        rec = np.rec.fromarrays(cols)
-        assert_equal(rec['f0'], ['test', 'test', 'test'])
-        assert_equal(rec['f1'], ['', '', ''])
-
-        dt = np.dtype([('f0', '|S4'), ('f1', '|S')])
-        rec = np.rec.fromarrays(cols, dtype=dt)
-        assert_equal(rec.itemsize, 4)
-        assert_equal(rec['f0'], [b'test', b'test', b'test'])
-        assert_equal(rec['f1'], [b'', b'', b''])
-
 
 class TestRecord(TestCase):
     def setUp(self):
@@ -302,11 +284,8 @@ class TestRecord(TestCase):
 
     def test_out_of_order_fields(self):
         """Ticket #1431."""
-        # this test will be invalid in 1.13
-        # suppress deprecation warning in 1.12 (remove in 1.13)
-        with assert_warns(FutureWarning):
-            x = self.data[['col1', 'col2']]
-            y = self.data[['col2', 'col1']]
+        x = self.data[['col1', 'col2']]
+        y = self.data[['col2', 'col1']]
         assert_equal(x[0][0], y[0][1])
 
     def test_pickle_1(self):
@@ -320,15 +299,6 @@ class TestRecord(TestCase):
         assert_equal(a, pickle.loads(pickle.dumps(a)))
         assert_equal(a[0], pickle.loads(pickle.dumps(a[0])))
 
-    def test_pickle_3(self):
-        # Issue #7140
-        a = self.data
-        pa = pickle.loads(pickle.dumps(a[0]))
-        assert_(pa.flags.c_contiguous)
-        assert_(pa.flags.f_contiguous)
-        assert_(pa.flags.writeable)
-        assert_(pa.flags.aligned)
-
     def test_objview_record(self):
         # https://github.com/numpy/numpy/issues/2599
         dt = np.dtype([('foo', 'i8'), ('bar', 'O')])
@@ -337,8 +307,7 @@ class TestRecord(TestCase):
 
         # https://github.com/numpy/numpy/issues/3256
         ra = np.recarray((2,), dtype=[('x', object), ('y', float), ('z', int)])
-        with assert_warns(FutureWarning):
-            ra[['x','y']]  # TypeError?
+        ra[['x','y']]  # TypeError?
 
     def test_record_scalar_setitem(self):
         # https://github.com/numpy/numpy/issues/3561

@@ -264,20 +264,10 @@ gentype_@name@(PyObject *m1, PyObject *m2)
 static PyObject *
 gentype_multiply(PyObject *m1, PyObject *m2)
 {
+    PyObject *ret = NULL;
     npy_intp repeat;
 
-    /*
-     * If the other object supports sequence repeat and not number multiply
-     * we should call sequence repeat to support e.g. list repeat by numpy
-     * scalars (they may be converted to ndarray otherwise).
-     * A python defined class will always only have the nb_multiply slot and
-     * some classes may have neither defined. For the latter we want need
-     * to give the normal case a chance to convert the object to ndarray.
-     * Probably no class has both defined, but if they do, prefer number.
-     */
     if (!PyArray_IsScalar(m1, Generic) &&
-            ((Py_TYPE(m1)->tp_as_sequence != NULL) &&
-             (Py_TYPE(m1)->tp_as_sequence->sq_repeat != NULL)) &&
             ((Py_TYPE(m1)->tp_as_number == NULL) ||
              (Py_TYPE(m1)->tp_as_number->nb_multiply == NULL))) {
         /* Try to convert m2 to an int and try sequence repeat */
@@ -286,11 +276,9 @@ gentype_multiply(PyObject *m1, PyObject *m2)
             return NULL;
         }
         /* Note that npy_intp is compatible to Py_Ssize_t */
-        return PySequence_Repeat(m1, repeat);
+        ret = PySequence_Repeat(m1, repeat);
     }
-    if (!PyArray_IsScalar(m2, Generic) &&
-            ((Py_TYPE(m2)->tp_as_sequence != NULL) &&
-             (Py_TYPE(m2)->tp_as_sequence->sq_repeat != NULL)) &&
+    else if (!PyArray_IsScalar(m2, Generic) &&
             ((Py_TYPE(m2)->tp_as_number == NULL) ||
              (Py_TYPE(m2)->tp_as_number->nb_multiply == NULL))) {
         /* Try to convert m1 to an int and try sequence repeat */
@@ -298,11 +286,13 @@ gentype_multiply(PyObject *m1, PyObject *m2)
         if (repeat == -1 && PyErr_Occurred()) {
             return NULL;
         }
-        return PySequence_Repeat(m2, repeat);
+        ret = PySequence_Repeat(m2, repeat);
     }
-
-    /* All normal cases are handled by PyArray's multiply */
-    return PyArray_Type.tp_as_number->nb_multiply(m1, m2);
+    if (ret == NULL) {
+        PyErr_Clear(); /* no effect if not set */
+        ret = PyArray_Type.tp_as_number->nb_multiply(m1, m2);
+    }
+    return ret;
 }
 
 /**begin repeat
@@ -4080,7 +4070,6 @@ initialize_numeric_types(void)
     /*
      * need to add dummy versions with filled-in nb_index
      * in-order for PyType_Ready to fill in .__index__() method
-     * also fill array_type_as_number struct with reasonable defaults
      */
 
     /**begin repeat
@@ -4089,7 +4078,6 @@ initialize_numeric_types(void)
      * #NAME = Byte, Short, Int, Long, LongLong, UByte, UShort,
      *         UInt, ULong, ULongLong#
      */
-    @name@_arrtype_as_number = gentype_as_number;
     Py@NAME@ArrType_Type.tp_as_number = &@name@_arrtype_as_number;
     Py@NAME@ArrType_Type.tp_as_number->nb_index = (unaryfunc)@name@_index;
 

@@ -7,11 +7,11 @@ import operator
 
 import numpy as np
 import numpy.core.numeric as _nx
-from numpy.core import linspace, atleast_1d, atleast_2d, transpose
+from numpy.core import linspace, atleast_1d, atleast_2d
 from numpy.core.numeric import (
     ones, zeros, arange, concatenate, array, asarray, asanyarray, empty,
     empty_like, ndarray, around, floor, ceil, take, dot, where, intp,
-    integer, isscalar, absolute
+    integer, isscalar
     )
 from numpy.core.umath import (
     pi, multiply, add, arctan2, frompyfunc, cos, less_equal, sqrt, sin,
@@ -23,10 +23,8 @@ from numpy.core.fromnumeric import (
 from numpy.core.numerictypes import typecodes, number
 from numpy.lib.twodim_base import diag
 from .utils import deprecate
-from numpy.core.multiarray import (
-    _insert, add_docstring, digitize, bincount, 
-    interp as compiled_interp, interp_complex as compiled_interp_complex
-    )
+from numpy.core.multiarray import _insert, add_docstring
+from numpy.core.multiarray import digitize, bincount, interp as compiled_interp
 from numpy.core.umath import _add_newdoc_ufunc as add_newdoc_ufunc
 from numpy.compat import long
 from numpy.compat.py3k import basestring
@@ -38,171 +36,13 @@ if sys.version_info[0] < 3:
 
 __all__ = [
     'select', 'piecewise', 'trim_zeros', 'copy', 'iterable', 'percentile',
-    'diff', 'gradient', 'angle', 'unwrap', 'sort_complex', 'disp', 'flip',
-    'rot90', 'extract', 'place', 'vectorize', 'asarray_chkfinite', 'average',
+    'diff', 'gradient', 'angle', 'unwrap', 'sort_complex', 'disp',
+    'extract', 'place', 'vectorize', 'asarray_chkfinite', 'average',
     'histogram', 'histogramdd', 'bincount', 'digitize', 'cov', 'corrcoef',
     'msort', 'median', 'sinc', 'hamming', 'hanning', 'bartlett',
     'blackman', 'kaiser', 'trapz', 'i0', 'add_newdoc', 'add_docstring',
     'meshgrid', 'delete', 'insert', 'append', 'interp', 'add_newdoc_ufunc'
     ]
-
-
-def rot90(m, k=1, axes=(0,1)):
-    """
-    Rotate an array by 90 degrees in the plane specified by axes.
-
-    Rotation direction is from the first towards the second axis.
-
-    .. versionadded:: 1.12.0
-
-    Parameters
-    ----------
-    m : array_like
-        Array of two or more dimensions.
-    k : integer
-        Number of times the array is rotated by 90 degrees.
-    axes: (2,) array_like
-        The array is rotated in the plane defined by the axes.
-        Axes must be different.
-
-    Returns
-    -------
-    y : ndarray
-        A rotated view of `m`.
-
-    See Also
-    --------
-    flip : Reverse the order of elements in an array along the given axis.
-    fliplr : Flip an array horizontally.
-    flipud : Flip an array vertically.
-
-    Notes
-    -----
-    rot90(m, k=1, axes=(1,0)) is the reverse of rot90(m, k=1, axes=(0,1))
-    rot90(m, k=1, axes=(1,0)) is equivalent to rot90(m, k=-1, axes=(0,1))
-
-    Examples
-    --------
-    >>> m = np.array([[1,2],[3,4]], int)
-    >>> m
-    array([[1, 2],
-           [3, 4]])
-    >>> np.rot90(m)
-    array([[2, 4],
-           [1, 3]])
-    >>> np.rot90(m, 2)
-    array([[4, 3],
-           [2, 1]])
-    >>> m = np.arange(8).reshape((2,2,2))
-    >>> np.rot90(m, 1, (1,2))
-    array([[[1, 3],
-            [0, 2]],
-
-          [[5, 7],
-           [4, 6]]])
-
-    """
-    axes = tuple(axes)
-    if len(axes) != 2:
-        raise ValueError("len(axes) must be 2.")
-
-    m = asanyarray(m)
-
-    if axes[0] == axes[1] or absolute(axes[0] - axes[1]) == m.ndim:
-        raise ValueError("Axes must be different.")
-
-    if (axes[0] >= m.ndim or axes[0] < -m.ndim
-        or axes[1] >= m.ndim or axes[1] < -m.ndim):
-        raise ValueError("Axes={} out of range for array of ndim={}."
-            .format(axes, m.ndim))
-
-    k %= 4
-
-    if k == 0:
-        return m[:]
-    if k == 2:
-        return flip(flip(m, axes[0]), axes[1])
-
-    axes_list = arange(0, m.ndim)
-    axes_list[axes[0]], axes_list[axes[1]] = axes_list[axes[1]], axes_list[axes[0]]
-
-    if k == 1:
-        return transpose(flip(m,axes[1]), axes_list)
-    else:
-        # k == 3
-        return flip(transpose(m, axes_list), axes[1])
-
-
-def flip(m, axis):
-    """
-    Reverse the order of elements in an array along the given axis.
-
-    The shape of the array is preserved, but the elements are reordered.
-
-    .. versionadded:: 1.12.0
-
-    Parameters
-    ----------
-    m : array_like
-        Input array.
-    axis : integer
-        Axis in array, which entries are reversed.
-
-
-    Returns
-    -------
-    out : array_like
-        A view of `m` with the entries of axis reversed.  Since a view is
-        returned, this operation is done in constant time.
-
-    See Also
-    --------
-    flipud : Flip an array vertically (axis=0).
-    fliplr : Flip an array horizontally (axis=1).
-
-    Notes
-    -----
-    flip(m, 0) is equivalent to flipud(m).
-    flip(m, 1) is equivalent to fliplr(m).
-    flip(m, n) corresponds to ``m[...,::-1,...]`` with ``::-1`` at position n.
-
-    Examples
-    --------
-    >>> A = np.arange(8).reshape((2,2,2))
-    >>> A
-    array([[[0, 1],
-            [2, 3]],
-
-           [[4, 5],
-            [6, 7]]])
-
-    >>> flip(A, 0)
-    array([[[4, 5],
-            [6, 7]],
-
-           [[0, 1],
-            [2, 3]]])
-
-    >>> flip(A, 1)
-    array([[[2, 3],
-            [0, 1]],
-
-           [[6, 7],
-            [4, 5]]])
-
-    >>> A = np.random.randn(3,4,5)
-    >>> np.all(flip(A,2) == A[:,:,::-1,...])
-    True
-    """
-    if not hasattr(m, 'ndim'):
-        m = asarray(m)
-    indexer = [slice(None)] * m.ndim
-    try:
-        indexer[axis] = slice(None, None, -1)
-    except IndexError:
-        raise ValueError("axis=%i is invalid for the %i-dimensional input array"
-                         % (axis, m.ndim))
-    return m[tuple(indexer)]
 
 
 def iterable(y):
@@ -216,24 +56,24 @@ def iterable(y):
 
     Returns
     -------
-    b : bool
-      Return ``True`` if the object has an iterator method or is a
-      sequence and ``False`` otherwise.
+    b : {0, 1}
+      Return 1 if the object has an iterator method or is a sequence,
+      and 0 otherwise.
 
 
     Examples
     --------
     >>> np.iterable([1, 2, 3])
-    True
+    1
     >>> np.iterable(2)
-    False
+    0
 
     """
     try:
         iter(y)
-    except TypeError:
-        return False
-    return True
+    except:
+        return 0
+    return 1
 
 
 def _hist_bin_sqrt(x):
@@ -453,11 +293,11 @@ def histogram(a, bins=10, range=None, normed=False, weights=None,
 
         'auto'
             Maximum of the 'sturges' and 'fd' estimators. Provides good
-            all around performance.
+            all round performance
 
         'fd' (Freedman Diaconis Estimator)
             Robust (resilient to outliers) estimator that takes into
-            account data variability and data size.
+            account data variability and data size .
 
         'doane'
             An improved version of Sturges' estimator that works better
@@ -489,8 +329,8 @@ def histogram(a, bins=10, range=None, normed=False, weights=None,
         based on the actual data within `range`, the bin count will fill
         the entire range including portions containing no data.
     normed : bool, optional
-        This keyword is deprecated in NumPy 1.6.0 due to confusing/buggy
-        behavior. It will be removed in NumPy 2.0.0. Use the ``density``
+        This keyword is deprecated in Numpy 1.6 due to confusing/buggy
+        behavior. It will be removed in Numpy 2.0. Use the ``density``
         keyword instead. If ``False``, the result will contain the
         number of samples in each bin. If ``True``, the result is the
         value of the probability *density* function at the bin,
@@ -592,7 +432,7 @@ def histogram(a, bins=10, range=None, normed=False, weights=None,
 
     'Doane'
         .. math:: n_h = 1 + \log_{2}(n) +
-                        \log_{2}(1 + \frac{|g_1|}{\sigma_{g_1}})
+                        \log_{2}(1 + \frac{|g_1|}{\sigma_{g_1})}
 
             g_1 = mean[(\frac{x - \mu}{\sigma})^3]
 
@@ -809,7 +649,7 @@ def histogram(a, bins=10, range=None, normed=False, weights=None,
         else:
             return n, bins
     else:
-        # deprecated, buggy behavior. Remove for NumPy 2.0.0
+        # deprecated, buggy behavior. Remove for Numpy 2.0
         if normed:
             db = array(np.diff(bins), float)
             return n/(n*db).sum(), bins
@@ -1088,17 +928,6 @@ def average(a, axis=None, weights=None, returned=False):
     TypeError: Axis must be specified when shapes of a and weights differ.
 
     """
-    # 3/19/2016 1.12.0:
-    # replace the next few lines with "a = np.asanyarray(a)"
-    if (type(a) not in (np.ndarray, np.matrix) and
-            issubclass(type(a), np.ndarray)):
-        warnings.warn("np.average currently does not preserve subclasses, but "
-                      "will do so in the future to match the behavior of most "
-                      "other numpy functions such as np.mean. In particular, "
-                      "this means calls which returned a scalar may return a "
-                      "0-d subclass object instead.",
-                      FutureWarning, stacklevel=2)
-
     if not isinstance(a, np.matrix):
         a = np.asarray(a)
 
@@ -1106,13 +935,8 @@ def average(a, axis=None, weights=None, returned=False):
         avg = a.mean(axis)
         scl = avg.dtype.type(a.size/avg.size)
     else:
-        wgt = np.asanyarray(weights)
-
-        if issubclass(a.dtype.type, (np.integer, np.bool_)):
-            result_dtype = np.result_type(a.dtype, wgt.dtype, 'f8')
-        else:
-            result_dtype = np.result_type(a.dtype, wgt.dtype)
-
+        a = a + 0.0
+        wgt = np.asarray(weights)
         # Sanity checks
         if a.shape != wgt.shape:
             if axis is None:
@@ -1127,19 +951,17 @@ def average(a, axis=None, weights=None, returned=False):
                     "Length of weights not compatible with specified axis.")
 
             # setup wgt to broadcast along axis
-            wgt = np.broadcast_to(wgt, (a.ndim-1)*(1,) + wgt.shape)
-            wgt = wgt.swapaxes(-1, axis)
+            wgt = np.array(wgt, copy=0, ndmin=a.ndim).swapaxes(-1, axis)
 
-        scl = wgt.sum(axis=axis, dtype=result_dtype)
+        scl = wgt.sum(axis=axis, dtype=np.result_type(a.dtype, wgt.dtype))
         if (scl == 0.0).any():
             raise ZeroDivisionError(
                 "Weights sum to zero, can't be normalized")
 
-        avg = np.multiply(a, wgt, dtype=result_dtype).sum(axis)/scl
+        avg = np.multiply(a, wgt).sum(axis)/scl
 
     if returned:
-        if scl.shape != avg.shape:
-            scl = np.broadcast_to(scl, avg.shape).copy()
+        scl = np.multiply(avg, 0) + scl
         return avg, scl
     else:
         return avg
@@ -1247,8 +1069,8 @@ def piecewise(x, condlist, funclist, *args, **kw):
     kw : dict, optional
         Keyword arguments used in calling `piecewise` are passed to the
         functions upon execution, i.e., if called
-        ``piecewise(..., ..., alpha=1)``, then each function is called as
-        ``f(x, alpha=1)``.
+        ``piecewise(..., ..., lambda=1)``, then each function is called as
+        ``f(x, lambda=1)``.
 
     Returns
     -------
@@ -1383,7 +1205,7 @@ def select(condlist, choicelist, default=0):
         # 2014-02-24, 1.9
         warnings.warn("select with an empty condition list is not possible"
                       "and will be deprecated",
-                      DeprecationWarning, stacklevel=2)
+                      DeprecationWarning)
         return np.asarray(default)[()]
 
     choicelist = [np.asarray(choice) for choice in choicelist]
@@ -1418,7 +1240,7 @@ def select(condlist, choicelist, default=0):
         msg = "select condlists containing integer ndarrays is deprecated " \
             "and will be removed in the future. Use `.astype(bool)` to " \
             "convert to bools."
-        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+        warnings.warn(msg, DeprecationWarning)
 
     if choicelist[0].ndim == 0:
         # This may be common, so avoid the call.
@@ -1507,7 +1329,7 @@ def gradient(f, *varargs, **kwargs):
         single scalar specifies sample distance for all dimensions.
         if `axis` is given, the number of varargs must equal the number of axes.
     edge_order : {1, 2}, optional
-        Gradient is calculated using N-th order accurate differences
+        Gradient is calculated using N\ :sup:`th` order accurate differences
         at the boundaries. Default: 1.
 
         .. versionadded:: 1.9.1
@@ -1521,10 +1343,9 @@ def gradient(f, *varargs, **kwargs):
 
     Returns
     -------
-    gradient : ndarray or list of ndarray
-        A set of ndarrays (or a single ndarray if there is only one dimension)
-        correposnding to the derivatives of f with respect to each dimension.
-        Each derivative has the same shape as f.
+    gradient : list of ndarray
+        Each element of `list` has the same shape as `f` giving the derivative
+        of `f` with respect to each dimension.
 
     Examples
     --------
@@ -1544,8 +1365,9 @@ def gradient(f, *varargs, **kwargs):
             [ 1. ,  1. ,  1. ]])]
 
     >>> x = np.array([0, 1, 2, 3, 4])
+    >>> dx = np.gradient(x)
     >>> y = x**2
-    >>> np.gradient(y, edge_order=2)
+    >>> np.gradient(y, dx, edge_order=2)
     array([-0.,  2.,  4.,  6.,  8.])
 
     The axis keyword can be used to specify a subset of axes of which the gradient is calculated
@@ -1583,8 +1405,6 @@ def gradient(f, *varargs, **kwargs):
     else:
         raise SyntaxError(
             "invalid number of arguments")
-    if any([not np.isscalar(dxi) for dxi in dx]):
-        raise ValueError("distances must be scalars")
 
     edge_order = kwargs.pop('edge_order', 1)
     if kwargs:
@@ -1717,6 +1537,7 @@ def diff(a, n=1, axis=-1):
     diff : ndarray
         The n-th differences. The shape of the output is the same as `a`
         except along `axis` where the dimension is smaller by `n`.
+.
 
     See Also
     --------
@@ -1774,13 +1595,13 @@ def interp(x, xp, fp, left=None, right=None, period=None):
         `period` is not specified. Otherwise, `xp` is internally sorted after
         normalizing the periodic boundaries with ``xp = xp % period``.
 
-    fp : 1-D sequence of float or complex
+    fp : 1-D sequence of floats
         The y-coordinates of the data points, same length as `xp`.
 
-    left : optional float or complex corresponding to fp
+    left : float, optional
         Value to return for `x < xp[0]`, default is `fp[0]`.
 
-    right : optional float or complex corresponding to fp
+    right : float, optional
         Value to return for `x > xp[-1]`, default is `fp[-1]`.
 
     period : None or float, optional
@@ -1792,7 +1613,7 @@ def interp(x, xp, fp, left=None, right=None, period=None):
 
     Returns
     -------
-    y : float or complex (corresponding to fp) or ndarray 
+    y : float or ndarray
         The interpolated values, same shape as `x`.
 
     Raises
@@ -1843,31 +1664,14 @@ def interp(x, xp, fp, left=None, right=None, period=None):
     >>> np.interp(x, xp, fp, period=360)
     array([7.5, 5., 8.75, 6.25, 3., 3.25, 3.5, 3.75])
 
-    Complex interpolation
-    >>> x = [1.5, 4.0]
-    >>> xp = [2,3,5]
-    >>> fp = [1.0j, 0, 2+3j]
-    >>> np.interp(x, xp, fp)
-    array([ 0.+1.j ,  1.+1.5j])
-
     """
-
-    fp = np.asarray(fp)
-
-    if np.iscomplexobj(fp):
-        interp_func = compiled_interp_complex
-        input_dtype = np.complex128
-    else:
-        interp_func = compiled_interp
-        input_dtype = np.float64
-
     if period is None:
         if isinstance(x, (float, int, number)):
-            return interp_func([x], xp, fp, left, right).item()
+            return compiled_interp([x], xp, fp, left, right).item()
         elif isinstance(x, np.ndarray) and x.ndim == 0:
-            return interp_func([x], xp, fp, left, right).item()
+            return compiled_interp([x], xp, fp, left, right).item()
         else:
-            return interp_func(x, xp, fp, left, right)
+            return compiled_interp(x, xp, fp, left, right)
     else:
         if period == 0:
             raise ValueError("period must be a non-zero value")
@@ -1880,8 +1684,7 @@ def interp(x, xp, fp, left=None, right=None, period=None):
             x = [x]
         x = np.asarray(x, dtype=np.float64)
         xp = np.asarray(xp, dtype=np.float64)
-        fp = np.asarray(fp, dtype=input_dtype)
-
+        fp = np.asarray(fp, dtype=np.float64)
         if xp.ndim != 1 or fp.ndim != 1:
             raise ValueError("Data points must be 1-D sequences")
         if xp.shape[0] != fp.shape[0]:
@@ -1894,12 +1697,12 @@ def interp(x, xp, fp, left=None, right=None, period=None):
         fp = fp[asort_xp]
         xp = np.concatenate((xp[-1:]-period, xp, xp[0:1]+period))
         fp = np.concatenate((fp[-1:], fp, fp[0:1]))
-
         if return_array:
-            return interp_func(x, xp, fp, left, right)
+            return compiled_interp(x, xp, fp, left, right)
         else:
-            return interp_func(x, xp, fp, left, right).item()
-                
+            return compiled_interp(x, xp, fp, left, right).item()
+
+
 def angle(z, deg=0):
     """
     Return the angle of the complex argument.
@@ -2177,8 +1980,7 @@ def place(arr, mask, vals):
     vals : 1-D sequence
         Values to put into `a`. Only the first N elements are used, where
         N is the number of True values in `mask`. If `vals` is smaller
-        than N, it will be repeated, and if elements of `a` are to be masked,
-        this sequence must be non-empty.
+        than N it will be repeated.
 
     See Also
     --------
@@ -2339,10 +2141,6 @@ class vectorize(object):
     >>> vpolyval.excluded.add(0)
     >>> vpolyval([1, 2, 3], x=[0, 1])
     array([3, 6])
-
-    See Also
-    --------
-    frompyfunc : Takes an arbitrary Python function and returns a ufunc
 
     Notes
     -----
@@ -2617,17 +2415,11 @@ def cov(m, y=None, rowvar=True, bias=False, ddof=None, fweights=None,
 
     # Handles complex arrays too
     m = np.asarray(m)
-    if m.ndim > 2:
-        raise ValueError("m has more than 2 dimensions")
-
     if y is None:
         dtype = np.result_type(m, np.float64)
     else:
         y = np.asarray(y)
-        if y.ndim > 2:
-            raise ValueError("y has more than 2 dimensions")
         dtype = np.result_type(m, y, np.float64)
-
     X = array(m, ndmin=2, dtype=dtype)
     if rowvar == 0 and X.shape[0] != 1:
         X = X.T
@@ -2692,7 +2484,7 @@ def cov(m, y=None, rowvar=True, bias=False, ddof=None, fweights=None,
         fact = w_sum - ddof*sum(w*aweights)/w_sum
 
     if fact <= 0:
-        warnings.warn("Degrees of freedom <= 0 for slice", RuntimeWarning, stacklevel=2)
+        warnings.warn("Degrees of freedom <= 0 for slice", RuntimeWarning)
         fact = 0.0
 
     X -= avg[:, None]
@@ -2761,12 +2553,11 @@ def corrcoef(x, y=None, rowvar=1, bias=np._NoValue, ddof=np._NoValue):
     for backwards compatibility with previous versions of this function.  These
     arguments had no effect on the return values of the function and can be
     safely ignored in this and previous versions of numpy.
-
     """
     if bias is not np._NoValue or ddof is not np._NoValue:
         # 2015-03-15, 1.10
         warnings.warn('bias and ddof have no effect and are deprecated',
-                      DeprecationWarning, stacklevel=2)
+                      DeprecationWarning)
     c = cov(x, y, rowvar)
     try:
         d = diag(c)
@@ -2942,6 +2733,7 @@ def bartlett(M):
            http://en.wikipedia.org/wiki/Window_function
     .. [5] W.H. Press,  B.P. Flannery, S.A. Teukolsky, and W.T. Vetterling,
            "Numerical Recipes", Cambridge University Press, 1986, page 429.
+
 
     Examples
     --------
@@ -3587,9 +3379,9 @@ def _ureduce(a, func, **kwargs):
     a : array_like
         Input array or object that can be converted to an array.
     func : callable
-        Reduction function capable of receiving a single axis argument.
+        Reduction function Kapable of receiving an axis argument.
         It is is called with `a` as first argument followed by `kwargs`.
-    kwargs : keyword arguments
+     kwargs : keyword arguments
         additional keyword arguments to pass to `func`.
 
     Returns
@@ -3774,7 +3566,7 @@ def _median(a, axis=None, out=None, overwrite_input=False):
         if rout.ndim == 0:
             if n == True:
                 warnings.warn("Invalid value encountered in median",
-                              RuntimeWarning, stacklevel=3)
+                              RuntimeWarning)
                 if out is not None:
                     out[...] = a.dtype.type(np.nan)
                     rout = out
@@ -3783,7 +3575,7 @@ def _median(a, axis=None, out=None, overwrite_input=False):
         elif np.count_nonzero(n.ravel()) > 0:
             warnings.warn("Invalid value encountered in median for" +
                           " %d results" % np.count_nonzero(n.ravel()),
-                          RuntimeWarning, stacklevel=3)
+                          RuntimeWarning)
             rout[n] = np.nan
         return rout
     else:
@@ -3816,7 +3608,7 @@ def percentile(a, q, axis=None, out=None,
         have the same shape and buffer length as the expected output,
         but the type (of the output) will be cast if necessary.
     overwrite_input : bool, optional
-        If True, then allow use of memory of input array `a`
+        If True, then allow use of memory of input array `a` 
         calculations. The input array will be modified by the call to
         `percentile`. This will save memory when you do not need to
         preserve the contents of the input array. In this case you
@@ -3851,7 +3643,7 @@ def percentile(a, q, axis=None, out=None,
         If `q` is a single percentile and `axis=None`, then the result
         is a scalar. If multiple percentiles are given, first axis of
         the result corresponds to the percentiles. The other axes are
-        the axes that remain after the reduction of `a`. If the input
+        the axes that remain after the reduction of `a`. If the input 
         contains integers or floats smaller than ``float64``, the output
         data-type is ``float64``. Otherwise, the output data-type is the
         same as that of the input. If `out` is specified, that array is
@@ -4039,7 +3831,7 @@ def _percentile(a, q, axis=None, out=None,
 
     if np.any(n):
         warnings.warn("Invalid value encountered in percentile",
-                      RuntimeWarning, stacklevel=3)
+                              RuntimeWarning)
         if zerod:
             if ap.ndim == 1:
                 if out is not None:
@@ -4403,11 +4195,11 @@ def delete(arr, obj, axis=None):
         # 2013-09-24, 1.9
         warnings.warn(
             "in the future the special handling of scalars will be removed "
-            "from delete and raise an error", DeprecationWarning, stacklevel=2)
+            "from delete and raise an error", DeprecationWarning)
         if wrap:
             return wrap(arr)
         else:
-            return arr.copy(order=arrorder)
+            return arr.copy()
 
     slobj = [slice(None)]*ndim
     N = arr.shape[axis]
@@ -4420,9 +4212,9 @@ def delete(arr, obj, axis=None):
 
         if numtodel <= 0:
             if wrap:
-                return wrap(arr.copy(order=arrorder))
+                return wrap(arr.copy())
             else:
-                return arr.copy(order=arrorder)
+                return arr.copy()
 
         # Invert if step is negative:
         if step < 0:
@@ -4470,7 +4262,7 @@ def delete(arr, obj, axis=None):
     if obj.dtype == bool:
         warnings.warn(
             "in the future insert will treat boolean arrays and array-likes "
-            "as boolean index instead of casting it to integer", FutureWarning, stacklevel=2)
+            "as boolean index instead of casting it to integer", FutureWarning)
         obj = obj.astype(intp)
     if isinstance(_obj, (int, long, integer)):
         # optimization for a single value
@@ -4498,7 +4290,7 @@ def delete(arr, obj, axis=None):
             # 2013-09-24, 1.9
             warnings.warn(
                 "using a non-integer array as obj in delete will result in an "
-                "error in the future", DeprecationWarning, stacklevel=2)
+                "error in the future", DeprecationWarning)
             obj = obj.astype(intp)
         keep = ones(N, dtype=bool)
 
@@ -4509,13 +4301,13 @@ def delete(arr, obj, axis=None):
             warnings.warn(
                 "in the future out of bounds indices will raise an error "
                 "instead of being ignored by `numpy.delete`.",
-                DeprecationWarning, stacklevel=2)
+                DeprecationWarning)
             obj = obj[inside_bounds]
         positive_indices = obj >= 0
         if not positive_indices.all():
             warnings.warn(
                 "in the future negative indices will not be ignored by "
-                "`numpy.delete`.", FutureWarning, stacklevel=2)
+                "`numpy.delete`.", FutureWarning)
             obj = obj[positive_indices]
 
         keep[obj, ] = False
@@ -4642,8 +4434,8 @@ def insert(arr, obj, values, axis=None):
         # 2013-09-24, 1.9
         warnings.warn(
             "in the future the special handling of scalars will be removed "
-            "from insert and raise an error", DeprecationWarning, stacklevel=2)
-        arr = arr.copy(order=arrorder)
+            "from insert and raise an error", DeprecationWarning)
+        arr = arr.copy()
         arr[...] = values
         if wrap:
             return wrap(arr)
@@ -4664,7 +4456,7 @@ def insert(arr, obj, values, axis=None):
             warnings.warn(
                 "in the future insert will treat boolean arrays and "
                 "array-likes as a boolean index instead of casting it to "
-                "integer", FutureWarning, stacklevel=2)
+                "integer", FutureWarning)
             indices = indices.astype(intp)
             # Code after warning period:
             #if obj.ndim != 1:
@@ -4714,7 +4506,7 @@ def insert(arr, obj, values, axis=None):
         # 2013-09-24, 1.9
         warnings.warn(
             "using a non-integer array as obj in insert will result in an "
-            "error in the future", DeprecationWarning, stacklevel=2)
+            "error in the future", DeprecationWarning)
         indices = indices.astype(intp)
 
     indices[indices < 0] += N
@@ -4792,3 +4584,4 @@ def append(arr, values, axis=None):
         values = ravel(values)
         axis = arr.ndim-1
     return concatenate((arr, values), axis=axis)
+

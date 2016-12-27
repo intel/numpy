@@ -14,7 +14,7 @@ import itertools
 
 import numpy as np
 from numpy.testing import (
-    TestCase, run_module_suite, assert_warns, suppress_warnings
+    TestCase, run_module_suite, assert_warns, clear_and_catch_warnings
     )
 from numpy.ma.testutils import (
     assert_, assert_array_equal, assert_equal, assert_almost_equal
@@ -805,7 +805,7 @@ class TestCov(TestCase):
     def setUp(self):
         self.data = array(np.random.rand(12))
 
-    def test_1d_without_missing(self):
+    def test_1d_wo_missing(self):
         # Test cov on 1D variable w/o missing values
         x = self.data
         assert_almost_equal(np.cov(x), cov(x))
@@ -813,7 +813,7 @@ class TestCov(TestCase):
         assert_almost_equal(np.cov(x, rowvar=False, bias=True),
                             cov(x, rowvar=False, bias=True))
 
-    def test_2d_without_missing(self):
+    def test_2d_wo_missing(self):
         # Test cov on 1 2D variable w/o missing values
         x = self.data.reshape(3, 4)
         assert_almost_equal(np.cov(x), cov(x))
@@ -821,7 +821,7 @@ class TestCov(TestCase):
         assert_almost_equal(np.cov(x, rowvar=False, bias=True),
                             cov(x, rowvar=False, bias=True))
 
-    def test_1d_with_missing(self):
+    def test_1d_w_missing(self):
         # Test cov 1 1D variable w/missing values
         x = self.data
         x[-1] = masked
@@ -845,7 +845,7 @@ class TestCov(TestCase):
         assert_almost_equal(np.cov(nx, nx[::-1], rowvar=False, bias=True),
                             cov(x, x[::-1], rowvar=False, bias=True))
 
-    def test_2d_with_missing(self):
+    def test_2d_w_missing(self):
         # Test cov on 2D variable w/ missing value
         x = self.data
         x[-1] = masked
@@ -867,6 +867,12 @@ class TestCov(TestCase):
                              x.shape[0] / frac))
 
 
+class catch_warn_mae(clear_and_catch_warnings):
+    """ Context manager to catch, reset warnings in ma.extras module
+    """
+    class_modules = (mae,)
+
+
 class TestCorrcoef(TestCase):
 
     def setUp(self):
@@ -878,10 +884,10 @@ class TestCorrcoef(TestCase):
         x, y = self.data, self.data2
         expected = np.corrcoef(x)
         expected2 = np.corrcoef(x, y)
-        with suppress_warnings() as sup:
+        with catch_warn_mae():
             warnings.simplefilter("always")
             assert_warns(DeprecationWarning, corrcoef, x, ddof=-1)
-            sup.filter(DeprecationWarning, "bias and ddof have no effect")
+            warnings.simplefilter("ignore")
             # ddof has no or negligible effect on the function
             assert_almost_equal(np.corrcoef(x, ddof=0), corrcoef(x, ddof=0))
             assert_almost_equal(corrcoef(x, ddof=-1), expected)
@@ -893,38 +899,38 @@ class TestCorrcoef(TestCase):
         x, y = self.data, self.data2
         expected = np.corrcoef(x)
         # bias raises DeprecationWarning
-        with suppress_warnings() as sup:
+        with catch_warn_mae():
             warnings.simplefilter("always")
             assert_warns(DeprecationWarning, corrcoef, x, y, True, False)
             assert_warns(DeprecationWarning, corrcoef, x, y, True, True)
             assert_warns(DeprecationWarning, corrcoef, x, bias=False)
-            sup.filter(DeprecationWarning, "bias and ddof have no effect")
+            warnings.simplefilter("ignore")
             # bias has no or negligible effect on the function
             assert_almost_equal(corrcoef(x, bias=1), expected)
 
-    def test_1d_without_missing(self):
+    def test_1d_wo_missing(self):
         # Test cov on 1D variable w/o missing values
         x = self.data
         assert_almost_equal(np.corrcoef(x), corrcoef(x))
         assert_almost_equal(np.corrcoef(x, rowvar=False),
                             corrcoef(x, rowvar=False))
-        with suppress_warnings() as sup:
-            sup.filter(DeprecationWarning, "bias and ddof have no effect")
+        with catch_warn_mae():
+            warnings.simplefilter("ignore")
             assert_almost_equal(np.corrcoef(x, rowvar=False, bias=True),
                                 corrcoef(x, rowvar=False, bias=True))
 
-    def test_2d_without_missing(self):
+    def test_2d_wo_missing(self):
         # Test corrcoef on 1 2D variable w/o missing values
         x = self.data.reshape(3, 4)
         assert_almost_equal(np.corrcoef(x), corrcoef(x))
         assert_almost_equal(np.corrcoef(x, rowvar=False),
                             corrcoef(x, rowvar=False))
-        with suppress_warnings() as sup:
-            sup.filter(DeprecationWarning, "bias and ddof have no effect")
+        with catch_warn_mae():
+            warnings.simplefilter("ignore")
             assert_almost_equal(np.corrcoef(x, rowvar=False, bias=True),
                                 corrcoef(x, rowvar=False, bias=True))
 
-    def test_1d_with_missing(self):
+    def test_1d_w_missing(self):
         # Test corrcoef 1 1D variable w/missing values
         x = self.data
         x[-1] = masked
@@ -933,8 +939,8 @@ class TestCorrcoef(TestCase):
         assert_almost_equal(np.corrcoef(nx), corrcoef(x))
         assert_almost_equal(np.corrcoef(nx, rowvar=False),
                             corrcoef(x, rowvar=False))
-        with suppress_warnings() as sup:
-            sup.filter(DeprecationWarning, "bias and ddof have no effect")
+        with catch_warn_mae():
+            warnings.simplefilter("ignore")
             assert_almost_equal(np.corrcoef(nx, rowvar=False, bias=True),
                                 corrcoef(x, rowvar=False, bias=True))
         try:
@@ -946,15 +952,15 @@ class TestCorrcoef(TestCase):
         assert_almost_equal(np.corrcoef(nx, nx[::-1]), corrcoef(x, x[::-1]))
         assert_almost_equal(np.corrcoef(nx, nx[::-1], rowvar=False),
                             corrcoef(x, x[::-1], rowvar=False))
-        with suppress_warnings() as sup:
-            sup.filter(DeprecationWarning, "bias and ddof have no effect")
+        with catch_warn_mae():
+            warnings.simplefilter("ignore")
             # ddof and bias have no or negligible effect on the function
             assert_almost_equal(np.corrcoef(nx, nx[::-1]),
                                 corrcoef(x, x[::-1], bias=1))
             assert_almost_equal(np.corrcoef(nx, nx[::-1]),
                                 corrcoef(x, x[::-1], ddof=2))
 
-    def test_2d_with_missing(self):
+    def test_2d_w_missing(self):
         # Test corrcoef on 2D variable w/ missing value
         x = self.data
         x[-1] = masked
@@ -963,8 +969,8 @@ class TestCorrcoef(TestCase):
         test = corrcoef(x)
         control = np.corrcoef(x)
         assert_almost_equal(test[:-1, :-1], control[:-1, :-1])
-        with suppress_warnings() as sup:
-            sup.filter(DeprecationWarning, "bias and ddof have no effect")
+        with catch_warn_mae():
+            warnings.simplefilter("ignore")
             # ddof and bias have no or negligible effect on the function
             assert_almost_equal(corrcoef(x, ddof=-2)[:-1, :-1],
                                 control[:-1, :-1])
@@ -1080,7 +1086,7 @@ class TestArraySetOps(TestCase):
         control = array([1, 1, 1, 4], mask=[1, 0, 0, 1])
         test = ediff1d(x)
         assert_equal(test, control)
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
 
     def test_ediff1d_tobegin(self):
@@ -1089,13 +1095,13 @@ class TestArraySetOps(TestCase):
         test = ediff1d(x, to_begin=masked)
         control = array([0, 1, 1, 1, 4], mask=[1, 1, 0, 0, 1])
         assert_equal(test, control)
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
         #
         test = ediff1d(x, to_begin=[1, 2, 3])
         control = array([1, 2, 3, 1, 1, 1, 4], mask=[0, 0, 0, 1, 0, 0, 1])
         assert_equal(test, control)
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
 
     def test_ediff1d_toend(self):
@@ -1104,13 +1110,13 @@ class TestArraySetOps(TestCase):
         test = ediff1d(x, to_end=masked)
         control = array([1, 1, 1, 4, 0], mask=[1, 0, 0, 1, 1])
         assert_equal(test, control)
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
         #
         test = ediff1d(x, to_end=[1, 2, 3])
         control = array([1, 1, 1, 4, 1, 2, 3], mask=[1, 0, 0, 1, 0, 0, 0])
         assert_equal(test, control)
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
 
     def test_ediff1d_tobegin_toend(self):
@@ -1119,14 +1125,14 @@ class TestArraySetOps(TestCase):
         test = ediff1d(x, to_end=masked, to_begin=masked)
         control = array([0, 1, 1, 1, 4, 0], mask=[1, 1, 0, 0, 1, 1])
         assert_equal(test, control)
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
         #
         test = ediff1d(x, to_end=[1, 2, 3], to_begin=masked)
         control = array([0, 1, 1, 1, 4, 1, 2, 3],
                         mask=[1, 1, 0, 0, 1, 0, 0, 0])
         assert_equal(test, control)
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
 
     def test_ediff1d_ndarray(self):
@@ -1136,13 +1142,13 @@ class TestArraySetOps(TestCase):
         control = array([1, 1, 1, 1], mask=[0, 0, 0, 0])
         assert_equal(test, control)
         self.assertTrue(isinstance(test, MaskedArray))
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
         #
         test = ediff1d(x, to_end=masked, to_begin=masked)
         control = array([0, 1, 1, 1, 1, 0], mask=[1, 0, 0, 0, 0, 1])
         self.assertTrue(isinstance(test, MaskedArray))
-        assert_equal(test.filled(0), control.filled(0))
+        assert_equal(test.data, control.data)
         assert_equal(test.mask, control.mask)
 
     def test_intersect1d(self):
@@ -1237,7 +1243,7 @@ class TestArraySetOps(TestCase):
 
 class TestShapeBase(TestCase):
 
-    def test_atleast_2d(self):
+    def test_atleast2d(self):
         # Test atleast_2d
         a = masked_array([0, 1, 2], mask=[0, 1, 0])
         b = atleast_2d(a)
@@ -1245,46 +1251,21 @@ class TestShapeBase(TestCase):
         assert_equal(b.mask.shape, b.data.shape)
         assert_equal(a.shape, (3,))
         assert_equal(a.mask.shape, a.data.shape)
-        assert_equal(b.mask.shape, b.data.shape)
 
     def test_shape_scalar(self):
         # the atleast and diagflat function should work with scalars
         # GitHub issue #3367
-        # Additionally, the atleast functions should accept multiple scalars
-        # correctly
         b = atleast_1d(1.0)
-        assert_equal(b.shape, (1,))
-        assert_equal(b.mask.shape, b.shape)
-        assert_equal(b.data.shape, b.shape)
-
-        b = atleast_1d(1.0, 2.0)
-        for a in b:
-            assert_equal(a.shape, (1,))
-            assert_equal(a.mask.shape, a.shape)
-            assert_equal(a.data.shape, a.shape)
+        assert_equal(b.shape, (1, ))
+        assert_equal(b.mask.shape, b.data.shape)
 
         b = atleast_2d(1.0)
         assert_equal(b.shape, (1, 1))
-        assert_equal(b.mask.shape, b.shape)
-        assert_equal(b.data.shape, b.shape)
-
-        b = atleast_2d(1.0, 2.0)
-        for a in b:
-            assert_equal(a.shape, (1, 1))
-            assert_equal(a.mask.shape, a.shape)
-            assert_equal(a.data.shape, a.shape)
+        assert_equal(b.mask.shape, b.data.shape)
 
         b = atleast_3d(1.0)
         assert_equal(b.shape, (1, 1, 1))
-        assert_equal(b.mask.shape, b.shape)
-        assert_equal(b.data.shape, b.shape)
-
-        b = atleast_3d(1.0, 2.0)
-        for a in b:
-            assert_equal(a.shape, (1, 1, 1))
-            assert_equal(a.mask.shape, a.shape)
-            assert_equal(a.data.shape, a.shape)
-
+        assert_equal(b.mask.shape, b.data.shape)
 
         b = diagflat(1.0)
         assert_equal(b.shape, (1, 1))

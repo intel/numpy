@@ -69,9 +69,7 @@ def have_compiler():
             return False
         cmd = [compiler.cc]
     try:
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-        p.stdout.close()
-        p.stderr.close()
+        Popen(cmd, stdout=PIPE, stderr=PIPE)
     except OSError:
         return False
     return True

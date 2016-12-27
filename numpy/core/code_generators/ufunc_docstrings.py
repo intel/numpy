@@ -1530,7 +1530,7 @@ add_newdoc('numpy.core.umath', 'isfinite',
     Not a Number, positive infinity and negative infinity are considered
     to be non-finite.
 
-    NumPy uses the IEEE Standard for Binary Floating-Point for Arithmetic
+    Numpy uses the IEEE Standard for Binary Floating-Point for Arithmetic
     (IEEE 754). This means that Not a Number is not equivalent to infinity.
     Also that positive infinity is not equivalent to negative infinity. But
     infinity is equivalent to positive infinity.  Errors result if the
@@ -1597,7 +1597,7 @@ add_newdoc('numpy.core.umath', 'isinf',
 
     Notes
     -----
-    NumPy uses the IEEE Standard for Binary Floating-Point for Arithmetic
+    Numpy uses the IEEE Standard for Binary Floating-Point for Arithmetic
     (IEEE 754).
 
     Errors result if the second argument is supplied when the first
@@ -1650,7 +1650,7 @@ add_newdoc('numpy.core.umath', 'isnan',
 
     Notes
     -----
-    NumPy uses the IEEE Standard for Binary Floating-Point for Arithmetic
+    Numpy uses the IEEE Standard for Binary Floating-Point for Arithmetic
     (IEEE 754). This means that Not a Number is not equivalent to infinity.
 
     Examples
@@ -2396,11 +2396,11 @@ add_newdoc('numpy.core.umath', 'fmin',
     Examples
     --------
     >>> np.fmin([2, 3, 4], [1, 5, 2])
-    array([1, 3, 2])
+    array([2, 5, 4])
 
     >>> np.fmin(np.eye(2), [0.5, 2])
-    array([[ 0.5,  0. ],
-           [ 0. ,  1. ]])
+    array([[ 1. ,  2. ],
+           [ 0.5,  2. ]])
 
     >>> np.fmin([np.nan, 0, np.nan],[0, np.nan, np.nan])
     array([  0.,   0.,  NaN])

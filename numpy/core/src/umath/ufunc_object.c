@@ -79,9 +79,6 @@ static int
 assign_reduce_identity_zero(PyArrayObject *result, void *data);
 
 static int
-assign_reduce_identity_minusone(PyArrayObject *result, void *data);
-
-static int
 assign_reduce_identity_one(PyArrayObject *result, void *data);
 
 
@@ -585,7 +582,7 @@ _is_same_name(const char* s1, const char* s2)
 /*
  * Sets core_num_dim_ix, core_num_dims, core_dim_ixs, core_offsets,
  * and core_signature in PyUFuncObject "ufunc".  Returns 0 unless an
- * error occurred.
+ * error occured.
  */
 static int
 _parse_signature(PyUFuncObject *ufunc, const char *signature)
@@ -1951,7 +1948,6 @@ PyUFunc_GeneralizedFunction(PyUFuncObject *ufunc,
     npy_intp iter_shape[NPY_MAXARGS];
     NpyIter *iter = NULL;
     npy_uint32 iter_flags;
-    npy_intp total_problem_size;
 
     /* These parameters come from extobj= or from a TLS global */
     int buffersize = 0, errormask = 0;
@@ -2047,7 +2043,7 @@ PyUFunc_GeneralizedFunction(PyUFuncObject *ufunc,
      * Validate the core dimensions of all the operands, and collect all of
      * the labelled core dimensions into 'core_dim_sizes'.
      *
-     * The behavior has been changed in NumPy 1.10.0, and the following
+     * The behavior has been changed in Numpy 1.10.0, and the following
      * requirements must be fulfilled or an error will be raised:
      *  * Arguments, both input and output, must have at least as many
      *    dimensions as the corresponding number of core dimensions. In
@@ -2347,16 +2343,6 @@ PyUFunc_GeneralizedFunction(PyUFuncObject *ufunc,
         }
     }
 
-    total_problem_size = NpyIter_GetIterSize(iter);
-    if (total_problem_size < 0) {
-        /*
-         * Only used for threading, if negative (this means that it is
-         * larger then ssize_t before axes removal) assume that the actual
-         * problem is large enough to be threaded usefully.
-         */
-        total_problem_size = 1000;
-    }
-
     /* Remove all the core output dimensions from the iterator */
     for (i = broadcast_ndim; i < iter_ndim; ++i) {
         if (NpyIter_RemoveAxis(iter, broadcast_ndim) != NPY_SUCCEED) {
@@ -2398,7 +2384,6 @@ PyUFunc_GeneralizedFunction(PyUFuncObject *ufunc,
         NpyIter_IterNextFunc *iternext;
         char **dataptr;
         npy_intp *count_ptr;
-        NPY_BEGIN_THREADS_DEF;
 
         /* Get the variables needed for the loop */
         iternext = NpyIter_GetIterNext(iter, NULL);
@@ -2409,17 +2394,10 @@ PyUFunc_GeneralizedFunction(PyUFuncObject *ufunc,
         dataptr = NpyIter_GetDataPtrArray(iter);
         count_ptr = NpyIter_GetInnerLoopSizePtr(iter);
 
-        if (!needs_api && !NpyIter_IterationNeedsAPI(iter)) {
-            NPY_BEGIN_THREADS_THRESHOLDED(total_problem_size);
-        }
         do {
             inner_dimensions[0] = *count_ptr;
             innerloop(dataptr, inner_dimensions, inner_strides, innerloopdata);
         } while (iternext(iter));
-
-        if (!needs_api && !NpyIter_IterationNeedsAPI(iter)) {
-            NPY_END_THREADS;
-        }
     } else {
         /**
          * For each output operand, check if it has non-zero size,
@@ -2435,9 +2413,6 @@ PyUFunc_GeneralizedFunction(PyUFuncObject *ufunc,
                         break;
                     case PyUFunc_One:
                         assign_reduce_identity_one(op[i], NULL);
-                        break;
-                    case PyUFunc_MinusOne:
-                        assign_reduce_identity_minusone(op[i], NULL);
                         break;
                     case PyUFunc_None:
                     case PyUFunc_ReorderableNone:
@@ -2856,19 +2831,6 @@ assign_reduce_identity_one(PyArrayObject *result, void *NPY_UNUSED(data))
 }
 
 static int
-assign_reduce_identity_minusone(PyArrayObject *result, void *NPY_UNUSED(data))
-{
-    static PyObject *MinusOne = NULL;
-
-    if (MinusOne == NULL) {
-        if ((MinusOne = PyInt_FromLong(-1)) == NULL) {
-            return -1;
-        }
-    }
-    return PyArray_FillWithScalar(result, MinusOne);
-}
-
-static int
 reduce_loop(NpyIter *iter, char **dataptrs, npy_intp *strides,
             npy_intp *countptr, NpyIter_IterNextFunc *iternext,
             int needs_api, npy_intp skip_first_count, void *data)
@@ -3021,18 +2983,6 @@ PyUFunc_Reduce(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
                 assign_identity = NULL;
             }
             break;
-        case PyUFunc_MinusOne:
-            assign_identity = &assign_reduce_identity_minusone;
-            reorderable = 1;
-            /*
-             * The identity for a dynamic dtype like
-             * object arrays can't be used in general
-             */
-            if (PyArray_ISOBJECT(arr) && PyArray_SIZE(arr) != 0) {
-                assign_identity = NULL;
-            }
-            break;
-
         case PyUFunc_None:
             reorderable = 0;
             break;
@@ -3293,16 +3243,13 @@ PyUFunc_Accumulate(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
             dataptr_copy[1] = dataptr[1];
             dataptr_copy[2] = dataptr[0];
 
-            /*
-             * Copy the first element to start the reduction.
-             *
-             * Output (dataptr[0]) and input (dataptr[1]) may point to
-             * the same memory, e.g. np.add.accumulate(a, out=a).
-             */
+            /* Copy the first element to start the reduction */
             if (otype == NPY_OBJECT) {
                 /*
-                 * Incref before decref to avoid the possibility of the
-                 * reference count being zero temporarily.
+                 * Input (dataptr[0]) and output (dataptr[1]) may point
+                 * to the same memory (i.e. np.add.accumulate(a, out=a)).
+                 * In that case need to incref before decref to avoid the
+                 * possibility of the reference count being zero temporarily.
                  */
                 Py_XINCREF(*(PyObject **)dataptr_copy[1]);
                 Py_XDECREF(*(PyObject **)dataptr_copy[0]);
@@ -3310,7 +3257,7 @@ PyUFunc_Accumulate(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
                                     *(PyObject **)dataptr_copy[1];
             }
             else {
-                memmove(dataptr_copy[0], dataptr_copy[1], itemsize);
+                memcpy(dataptr_copy[0], dataptr_copy[1], itemsize);
             }
 
             if (count_m1 > 0) {
@@ -3358,16 +3305,13 @@ PyUFunc_Accumulate(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
         dataptr_copy[1] = PyArray_BYTES(op[1]);
         dataptr_copy[2] = PyArray_BYTES(op[0]);
 
-        /*
-         * Copy the first element to start the reduction.
-         *
-         * Output (dataptr[0]) and input (dataptr[1]) may point to the
-         * same memory, e.g. np.add.accumulate(a, out=a).
-         */
+        /* Copy the first element to start the reduction */
         if (otype == NPY_OBJECT) {
             /*
-             * Incref before decref to avoid the possibility of the
-             * reference count being zero temporarily.
+             * Input (dataptr[0]) and output (dataptr[1]) may point
+             * to the same memory (i.e. np.add.accumulate(a, out=a, axis=0)).
+             * In that case need to incref before decref to avoid the
+             * possibility of the reference count being zero temporarily.
              */
             Py_XINCREF(*(PyObject **)dataptr_copy[1]);
             Py_XDECREF(*(PyObject **)dataptr_copy[0]);
@@ -3375,7 +3319,7 @@ PyUFunc_Accumulate(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *out,
                                 *(PyObject **)dataptr_copy[1];
         }
         else {
-            memmove(dataptr_copy[0], dataptr_copy[1], itemsize);
+            memcpy(dataptr_copy[0], dataptr_copy[1], itemsize);
         }
 
         if (count > 1) {
@@ -3704,25 +3648,15 @@ PyUFunc_Reduceat(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *ind,
                 dataptr_copy[1] = dataptr[1] + stride1*start;
                 dataptr_copy[2] = dataptr[0] + stride0_ind*i;
 
-                /*
-                 * Copy the first element to start the reduction.
-                 *
-                 * Output (dataptr[0]) and input (dataptr[1]) may point
-                 * to the same memory, e.g.
-                 * np.add.reduceat(a, np.arange(len(a)), out=a).
-                 */
+                /* Copy the first element to start the reduction */
                 if (otype == NPY_OBJECT) {
-                    /*
-                     * Incref before decref to avoid the possibility of
-                     * the reference count being zero temporarily.
-                     */
-                    Py_XINCREF(*(PyObject **)dataptr_copy[1]);
                     Py_XDECREF(*(PyObject **)dataptr_copy[0]);
                     *(PyObject **)dataptr_copy[0] =
                                         *(PyObject **)dataptr_copy[1];
+                    Py_XINCREF(*(PyObject **)dataptr_copy[0]);
                 }
                 else {
-                    memmove(dataptr_copy[0], dataptr_copy[1], itemsize);
+                    memcpy(dataptr_copy[0], dataptr_copy[1], itemsize);
                 }
 
                 if (count > 1) {
@@ -3772,25 +3706,15 @@ PyUFunc_Reduceat(PyUFuncObject *ufunc, PyArrayObject *arr, PyArrayObject *ind,
             dataptr_copy[1] = PyArray_BYTES(op[1]) + stride1*start;
             dataptr_copy[2] = PyArray_BYTES(op[0]) + stride0_ind*i;
 
-            /*
-             * Copy the first element to start the reduction.
-             *
-             * Output (dataptr[0]) and input (dataptr[1]) may point to
-             * the same memory, e.g.
-             * np.add.reduceat(a, np.arange(len(a)), out=a).
-             */
+            /* Copy the first element to start the reduction */
             if (otype == NPY_OBJECT) {
-                /*
-                 * Incref before decref to avoid the possibility of the
-                 * reference count being zero temporarily.
-                 */
-                Py_XINCREF(*(PyObject **)dataptr_copy[1]);
                 Py_XDECREF(*(PyObject **)dataptr_copy[0]);
                 *(PyObject **)dataptr_copy[0] =
                                     *(PyObject **)dataptr_copy[1];
+                Py_XINCREF(*(PyObject **)dataptr_copy[0]);
             }
             else {
-                memmove(dataptr_copy[0], dataptr_copy[1], itemsize);
+                memcpy(dataptr_copy[0], dataptr_copy[1], itemsize);
             }
 
             if (count > 1) {
@@ -5659,8 +5583,6 @@ ufunc_get_identity(PyUFuncObject *ufunc)
         return PyInt_FromLong(1);
     case PyUFunc_Zero:
         return PyInt_FromLong(0);
-    case PyUFunc_MinusOne:
-        return PyInt_FromLong(-1);
     }
     Py_RETURN_NONE;
 }

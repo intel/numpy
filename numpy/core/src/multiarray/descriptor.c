@@ -29,9 +29,7 @@
 #define NPY_NEXT_ALIGNED_OFFSET(offset, alignment) \
                 (((offset) + (alignment) - 1) & (-(alignment)))
 
-#ifndef PyDictProxy_Check
 #define PyDictProxy_Check(obj) (Py_TYPE(obj) == &PyDictProxy_Type)
-#endif
 
 static PyObject *typeDict = NULL;   /* Must be explicitly loaded */
 
@@ -535,6 +533,8 @@ _convert_from_array_descr(PyObject *obj, int align)
             goto fail;
         }
         dtypeflags |= (conv->flags & NPY_FROM_FIELDS);
+        tup = PyTuple_New((title == NULL ? 2 : 3));
+        PyTuple_SET_ITEM(tup, 0, (PyObject *)conv);
         if (align) {
             int _align;
 
@@ -544,9 +544,9 @@ _convert_from_array_descr(PyObject *obj, int align)
             }
             maxalign = PyArray_MAX(maxalign, _align);
         }
-        tup = PyTuple_New((title == NULL ? 2 : 3));
-        PyTuple_SET_ITEM(tup, 0, (PyObject *)conv);
         PyTuple_SET_ITEM(tup, 1, PyInt_FromLong((long) totalsize));
+
+        PyDict_SetItem(fields, name, tup);
 
         /*
          * Title can be "meta-data".  Only insert it
@@ -556,7 +556,6 @@ _convert_from_array_descr(PyObject *obj, int align)
         if (title != NULL) {
             Py_INCREF(title);
             PyTuple_SET_ITEM(tup, 2, title);
-            PyDict_SetItem(fields, name, tup);
 #if defined(NPY_PY3K)
             if (PyUString_Check(title)) {
 #else
@@ -571,10 +570,6 @@ _convert_from_array_descr(PyObject *obj, int align)
                 PyDict_SetItem(fields, title, tup);
             }
         }
-        else {
-            PyDict_SetItem(fields, name, tup);
-        }
-
         totalsize += conv->elsize;
         Py_DECREF(tup);
     }
@@ -1071,19 +1066,8 @@ _convert_from_dict(PyObject *obj, int align)
             if (!off) {
                 goto fail;
             }
-            offset = PyArray_PyIntAsInt(off);
-            if (offset == -1 && PyErr_Occurred()) {
-                Py_DECREF(off);
-                goto fail;
-            }
-            Py_DECREF(off);
-            if (offset < 0) {
-                PyErr_Format(PyExc_ValueError, "offset %d cannot be negative",
-                             (int)offset);
-                goto fail;
-            }
-
-            PyTuple_SET_ITEM(tup, 1, PyInt_FromLong(offset));
+            offset = PyInt_AsLong(off);
+            PyTuple_SET_ITEM(tup, 1, off);
             /* Flag whether the fields are specified out of order */
             if (offset < totalsize) {
                 has_out_of_order_fields = 1;
@@ -1149,7 +1133,7 @@ _convert_from_dict(PyObject *obj, int align)
             }
         }
         Py_DECREF(tup);
-        if (ret == NPY_FAIL) {
+        if ((ret == NPY_FAIL) || (newdescr->elsize == 0)) {
             goto fail;
         }
         dtypeflags |= (newdescr->flags & NPY_FROM_FIELDS);
@@ -1197,7 +1181,7 @@ _convert_from_dict(PyObject *obj, int align)
     if (tmp == NULL) {
         PyErr_Clear();
     } else {
-        itemsize = (int)PyArray_PyIntAsInt(tmp);
+        itemsize = (int)PyInt_AsLong(tmp);
         if (itemsize == -1 && PyErr_Occurred()) {
             Py_DECREF(new);
             return NULL;
@@ -1550,31 +1534,6 @@ finish:
             }
 #endif
             if (item) {
-                /* Check for a deprecated Numeric-style typecode */
-                if (PyBytes_Check(obj)) {
-                    char *type = NULL;
-                    Py_ssize_t len = 0;
-                    char *dep_tps[] = {"Bool", "Complex", "Float", "Int",
-                                       "Object0", "String0", "Timedelta64",
-                                       "Unicode0", "UInt", "Void0"};
-                    int ndep_tps = sizeof(dep_tps) / sizeof(dep_tps[0]);
-                    int i;
-
-                    if (PyBytes_AsStringAndSize(obj, &type, &len) < 0) {
-                        goto error;
-                    }
-                    for (i = 0; i < ndep_tps; ++i) {
-                        char *dep_tp = dep_tps[i];
-
-                        if (strncmp(type, dep_tp, strlen(dep_tp)) == 0) {
-                            if (DEPRECATE("Numeric-style type codes are "
-                                          "deprecated and will result in "
-                                          "an error in the future.") < 0) {
-                                goto fail;
-                            }
-                        }
-                    }
-                }
                 return PyArray_DescrConverter(item, at);
             }
         }

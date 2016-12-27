@@ -262,7 +262,7 @@ add_newdoc('numpy.core', 'nditer',
     has_multi_index : bool
         If True, the iterator was created with the "multi_index" flag,
         and the property `multi_index` can be used to retrieve it.
-    index
+    index :
         When the "c_index" or "f_index" flag was used, this property
         provides access to the index. Raises a ValueError if accessed
         and `has_index` is False.
@@ -273,10 +273,10 @@ add_newdoc('numpy.core', 'nditer',
         An index which matches the order of iteration.
     itersize : int
         Size of the iterator.
-    itviews
+    itviews :
         Structured view(s) of `operands` in memory, matching the reordered
         and optimized iterator access pattern.
-    multi_index
+    multi_index :
         When the "multi_index" flag was used, this property
         provides access to the index. Raises a ValueError if accessed
         accessed and `has_multi_index` is False.
@@ -288,7 +288,7 @@ add_newdoc('numpy.core', 'nditer',
         The array(s) to be iterated over.
     shape : tuple of ints
         Shape tuple, the shape of the iterator.
-    value
+    value :
         Value of `operands` at current iteration. Normally, this is a
         tuple of array scalars, but if the flag "external_loop" is used,
         it is a tuple of one dimensional arrays.
@@ -296,7 +296,7 @@ add_newdoc('numpy.core', 'nditer',
     Notes
     -----
     `nditer` supersedes `flatiter`.  The iterator implementation behind
-    `nditer` is also exposed by the NumPy C API.
+    `nditer` is also exposed by the Numpy C API.
 
     The Python exposure supplies two iteration interfaces, one which follows
     the Python iterator protocol, and another which mirrors the C-style
@@ -481,11 +481,6 @@ add_newdoc('numpy.core', 'broadcast',
         Amongst others, it has ``shape`` and ``nd`` properties, and
         may be used as an iterator.
 
-    See Also
-    --------
-    broadcast_arrays
-    broadcast_to
-
     Examples
     --------
     Manually adding two vectors, using broadcasting:
@@ -552,26 +547,9 @@ add_newdoc('numpy.core', 'broadcast', ('iters',
 
     """))
 
-add_newdoc('numpy.core', 'broadcast', ('ndim',
-    """
-    Number of dimensions of broadcasted result. Alias for `nd`.
-
-    .. versionadded:: 1.12.0
-
-    Examples
-    --------
-    >>> x = np.array([1, 2, 3])
-    >>> y = np.array([[4], [5], [6]])
-    >>> b = np.broadcast(x, y)
-    >>> b.ndim
-    2
-
-    """))
-
 add_newdoc('numpy.core', 'broadcast', ('nd',
     """
-    Number of dimensions of broadcasted result. For code intended for NumPy
-    1.12.0 and later the more consistent `ndim` is preferred.
+    Number of dimensions of broadcasted result.
 
     Examples
     --------
@@ -664,43 +642,35 @@ add_newdoc('numpy.core', 'broadcast', ('reset',
 
 add_newdoc('numpy.core.multiarray', 'array',
     """
-    array(object, dtype=None, copy=True, order='K', subok=False, ndmin=0)
+    array(object, dtype=None, copy=True, order=None, subok=False, ndmin=0)
 
     Create an array.
 
     Parameters
     ----------
     object : array_like
-        An array, any object exposing the array interface, an object whose
-        __array__ method returns an array, or any (nested) sequence.
+        An array, any object exposing the array interface, an
+        object whose __array__ method returns an array, or any
+        (nested) sequence.
     dtype : data-type, optional
-        The desired data-type for the array.  If not given, then the type will
-        be determined as the minimum type required to hold the objects in the
-        sequence.  This argument can only be used to 'upcast' the array.  For
-        downcasting, use the .astype(t) method.
+        The desired data-type for the array.  If not given, then
+        the type will be determined as the minimum type required
+        to hold the objects in the sequence.  This argument can only
+        be used to 'upcast' the array.  For downcasting, use the
+        .astype(t) method.
     copy : bool, optional
-        If true (default), then the object is copied.  Otherwise, a copy will
-        only be made if __array__ returns a copy, if obj is a nested sequence,
-        or if a copy is needed to satisfy any of the other requirements
-        (`dtype`, `order`, etc.).
-    order : {'K', 'A', 'C', 'F'}, optional
-        Specify the memory layout of the array. If object is not an array, the
-        newly created array will be in C order (row major) unless 'F' is
-        specified, in which case it will be in Fortran order (column major).
-        If object is an array the following holds.
-
-        ===== ========= ===================================================
-        order  no copy                     copy=True
-        ===== ========= ===================================================
-        'K'   unchanged F & C order preserved, otherwise most similar order
-        'A'   unchanged F order if input is F and not C, otherwise C order
-        'C'   C order   C order
-        'F'   F order   F order
-        ===== ========= ===================================================
-
-        When ``copy=False`` and a copy is made for other reasons, the result is
-        the same as if ``copy=True``, with some exceptions for `A`, see the
-        Notes section. The default order is 'K'.
+        If true (default), then the object is copied.  Otherwise, a copy
+        will only be made if __array__ returns a copy, if obj is a
+        nested sequence, or if a copy is needed to satisfy any of the other
+        requirements (`dtype`, `order`, etc.).
+    order : {'C', 'F', 'A'}, optional
+        Specify the order of the array.  If order is 'C', then the array
+        will be in C-contiguous order (last-index varies the fastest).
+        If order is 'F', then the returned array will be in
+        Fortran-contiguous order (first-index varies the fastest).
+        If order is 'A' (default), then the returned array may be
+        in any order (either C-, Fortran-contiguous, or even discontiguous),
+        unless a copy is required, in which case it will be C-contiguous.
     subok : bool, optional
         If True, then sub-classes will be passed-through, otherwise
         the returned array will be forced to be a base-class array (default).
@@ -716,13 +686,7 @@ add_newdoc('numpy.core.multiarray', 'array',
 
     See Also
     --------
-    empty, empty_like, zeros, zeros_like, ones, ones_like, full, full_like
-
-    Notes
-    -----
-    When order is 'A' and `object` is an array in neither 'C' nor 'F' order,
-    and a copy is forced by a change in dtype, then the order of the result is
-    not necessarily 'C' as expected. This is likely a bug.
+    empty, empty_like, zeros, zeros_like, ones, ones_like, fill
 
     Examples
     --------
@@ -940,6 +904,34 @@ add_newdoc('numpy.core.multiarray', 'zeros',
     array([(0, 0), (0, 0)],
           dtype=[('x', '<i4'), ('y', '<i4')])
 
+    """)
+
+add_newdoc('numpy.core.multiarray', 'count_nonzero',
+    """
+    count_nonzero(a)
+
+    Counts the number of non-zero values in the array ``a``.
+
+    Parameters
+    ----------
+    a : array_like
+        The array for which to count non-zeros.
+
+    Returns
+    -------
+    count : int or array of int
+        Number of non-zero values in the array.
+
+    See Also
+    --------
+    nonzero : Return the coordinates of all the non-zero values.
+
+    Examples
+    --------
+    >>> np.count_nonzero(np.eye(4))
+    4
+    >>> np.count_nonzero([[0,1,7,0,0],[3,0,0,2,19]])
+    5
     """)
 
 add_newdoc('numpy.core.multiarray', 'set_typeDict',
@@ -2014,7 +2006,7 @@ add_newdoc('numpy.core', 'matmul',
       were elements.
 
     .. warning::
-       This function is preliminary and included in NumPy 1.10.0 for testing
+       This function is preliminary and included in Numpy 1.10 for testing
        and documentation. Its semantics will not change, but the number and
        order of the optional arguments will.
 
@@ -2108,9 +2100,9 @@ add_newdoc('numpy.core', 'matmul',
     """)
 
 
-add_newdoc('numpy.core', 'c_einsum',
+add_newdoc('numpy.core', 'einsum',
     """
-    c_einsum(subscripts, *operands, out=None, dtype=None, order='K', casting='safe')
+    einsum(subscripts, *operands, out=None, dtype=None, order='K', casting='safe')
 
     Evaluates the Einstein summation convention on the operands.
 
@@ -2120,8 +2112,6 @@ add_newdoc('numpy.core', 'c_einsum',
     function is to try the examples below, which show how many common NumPy
     functions can be implemented as calls to `einsum`.
 
-    This is the core C function.
-
     Parameters
     ----------
     subscripts : str
@@ -2130,10 +2120,10 @@ add_newdoc('numpy.core', 'c_einsum',
         These are the arrays for the operation.
     out : ndarray, optional
         If provided, the calculation is done into this array.
-    dtype : {data-type, None}, optional
+    dtype : data-type, optional
         If provided, forces the calculation to use the data type specified.
         Note that you may have to also give a more liberal `casting`
-        parameter to allow the conversions. Default is None.
+        parameter to allow the conversions.
     order : {'C', 'F', 'A', 'K'}, optional
         Controls the memory layout of the output. 'C' means it should
         be C contiguous. 'F' means it should be Fortran contiguous,
@@ -2152,8 +2142,6 @@ add_newdoc('numpy.core', 'c_einsum',
             like float64 to float32, are allowed.
           * 'unsafe' means any data conversions may be done.
 
-        Default is 'safe'.
-
     Returns
     -------
     output : ndarray
@@ -2161,7 +2149,7 @@ add_newdoc('numpy.core', 'c_einsum',
 
     See Also
     --------
-    einsum, dot, inner, outer, tensordot
+    dot, inner, outer, tensordot
 
     Notes
     -----
@@ -2418,7 +2406,7 @@ add_newdoc('numpy.core.multiarray', 'ndarray',
     a low-level method (`ndarray(...)`) for instantiating an array.
 
     For more information, refer to the `numpy` module and examine the
-    methods and attributes of an array.
+    the methods and attributes of an array.
 
     Parameters
     ----------
@@ -4127,9 +4115,6 @@ add_newdoc('numpy.core.multiarray', 'ndarray', ('resize',
     ValueError
         If `a` does not own its own data or references or views to it exist,
         and the data memory must be changed.
-        PyPy only: will always raise if the data memory must be changed, since
-        there is no reliable way to determine if references or views to it
-        exist.
 
     SystemError
         If the `order` keyword argument is specified. This behaviour is a
@@ -4452,7 +4437,7 @@ add_newdoc('numpy.core.multiarray', 'ndarray', ('partition',
     Examples
     --------
     >>> a = np.array([3, 4, 2, 1])
-    >>> a.partition(3)
+    >>> a.partition(a, 3)
     >>> a
     array([2, 1, 3, 4])
 
@@ -4848,7 +4833,7 @@ add_newdoc('numpy.core.umath', 'frompyfunc',
     """
     frompyfunc(func, nin, nout)
 
-    Takes an arbitrary Python function and returns a NumPy ufunc.
+    Takes an arbitrary Python function and returns a Numpy ufunc.
 
     Can be used, for example, to add broadcasting to a built-in Python
     function (see Examples section).
@@ -4865,11 +4850,7 @@ add_newdoc('numpy.core.umath', 'frompyfunc',
     Returns
     -------
     out : ufunc
-        Returns a NumPy universal function (``ufunc``) object.
-
-    See Also
-    --------
-    vectorize : evaluates pyfunc over input arrays using broadcasting rules of numpy
+        Returns a Numpy universal function (``ufunc``) object.
 
     Notes
     -----
@@ -4895,7 +4876,7 @@ add_newdoc('numpy.core.umath', 'geterrobj',
     Return the current object that defines floating-point error handling.
 
     The error object contains all information that defines the error handling
-    behavior in NumPy. `geterrobj` is used internally by the other
+    behavior in Numpy. `geterrobj` is used internally by the other
     functions that get and set error handling behavior (`geterr`, `seterr`,
     `geterrcall`, `seterrcall`).
 
@@ -4959,7 +4940,7 @@ add_newdoc('numpy.core.umath', 'seterrobj',
     Set the object that defines floating-point error handling.
 
     The error object contains all information that defines the error handling
-    behavior in NumPy. `seterrobj` is used internally by the other
+    behavior in Numpy. `seterrobj` is used internally by the other
     functions that set error handling behavior (`seterr`, `seterrcall`).
 
     Parameters
@@ -5035,7 +5016,7 @@ add_newdoc('numpy.core.multiarray', 'digitize',
     Parameters
     ----------
     x : array_like
-        Input array to be binned. Prior to NumPy 1.10.0, this array had to
+        Input array to be binned. Prior to Numpy 1.10.0, this array had to
         be 1-dimensional, but can now have any shape.
     bins : array_like
         Array of bins. It has to be 1-dimensional and monotonic.
@@ -6242,7 +6223,7 @@ add_newdoc('numpy.core.multiarray', 'dtype', ('isbuiltin',
     2  if the dtype is for a user-defined numpy type
        A user-defined type uses the numpy C-API machinery to extend
        numpy to handle a new array type. See
-       :ref:`user.user-defined-data-types` in the NumPy manual.
+       :ref:`user.user-defined-data-types` in the Numpy manual.
     =  ========================================================================
 
     Examples
@@ -7630,7 +7611,7 @@ add_newdoc('numpy.core.numerictypes', 'generic', ('view',
 ##############################################################################
 
 add_newdoc('numpy.core.numerictypes', 'bool_',
-    """NumPy's Boolean type.  Character code: ``?``.  Alias: bool8""")
+    """Numpy's Boolean type.  Character code: ``?``.  Alias: bool8""")
 
 add_newdoc('numpy.core.numerictypes', 'complex64',
     """

@@ -204,7 +204,7 @@ def do_generate_api(targets, sources):
     fid = open(doc_file, 'w')
     fid.write('''
 =================
-NumPy Ufunc C-API
+Numpy Ufunc C-API
 =================
 ''')
     for func in ufunc_api_list:

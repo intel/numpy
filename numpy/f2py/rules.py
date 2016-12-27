@@ -16,13 +16,13 @@ wrapper_function(args)
     if (successful) {
 
       callfortran
-      if (successful) {
+      if (succesful) {
 
         put_a_to_python
-        if (successful) {
+        if (succesful) {
 
           put_b_to_python
-          if (successful) {
+          if (succesful) {
 
             buildvalue = ...
 

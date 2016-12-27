@@ -99,11 +99,11 @@ finally:
 #-----------------------------------
 
 # Source of the release notes
-RELEASE_NOTES = 'doc/release/1.12.0-notes.rst'
+RELEASE_NOTES = 'doc/release/1.11.0-notes.rst'
 
 # Start/end of the log (from git)
-LOG_START = 'maintenance/1.11.x'
-LOG_END = 'master'
+LOG_START = 'v1.10.0'
+LOG_END = 'maintenance/1.11.x'
 
 
 #-------------------------------------------------------
@@ -495,7 +495,7 @@ def dmg(options):
     user = os.path.join(options.doc.destdir_pdf, "userguide.pdf")
     if (not os.path.exists(ref)) or (not os.path.exists(user)):
         import warnings
-        warnings.warn("Docs need to be built first! Can't find them.", stacklevel=2)
+        warnings.warn("Docs need to be built first! Can't find them.")
 
     # Build the mpkg package
     call_task("clean")

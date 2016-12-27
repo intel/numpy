@@ -5,7 +5,7 @@ Scipy_ can be built to use accelerated or otherwise improved libraries
 for FFTs, linear algebra, and special functions. This module allows
 developers to transparently support these accelerated functions when
 scipy is available but still support users who have only installed
-NumPy.
+Numpy.
 
 .. _Scipy : http://www.scipy.org
 
